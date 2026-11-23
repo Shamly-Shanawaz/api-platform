@@ -29,6 +29,14 @@ These pre-defined workflows orchestrate multiple APIs to implement common use ca
 - [{{name}} {{version}}]({{../baseUrl}}/mcp/{{id}}.md){{#if description}} — {{description}}{{/if}}
 {{/mcpAPIs}}
 {{/if}}
+{{#if agents}}
+
+## Agents
+
+{{#agents}}
+- [{{name}} {{version}}]({{../baseUrl}}/agent/{{id}}.md){{#if description}} — {{description}}{{/if}}
+{{/agents}}
+{{/if}}
 {{#if graphqlAPIs}}
 
 ## GraphQL APIs

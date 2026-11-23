@@ -1227,6 +1227,8 @@ function validateScripts(strContent) {
             // AI agent data island, MCP variant (pages/mcp-landing/page.hbs) — same island
             // plus the resourcePath that points the prompt at /mcp/{handle}.md.
             "<script type=\"application/json\" id=\"apiAgentData\">{\"baseUrl\":\"{{baseUrl}}\",\"id\":\"{{apiMetadata.id}}\",\"resourcePath\":\"mcp\"}</script>",
+            // AI agent data island, agent variant (pages/agent-landing/page.hbs): /agent/{handle}.md.
+            "<script type=\"application/json\" id=\"apiAgentData\">{\"baseUrl\":\"{{baseUrl}}\",\"id\":\"{{apiMetadata.id}}\",\"resourcePath\":\"agent\"}</script>",
             // Home discover data island (pages/home/page.hbs)
             "<script type=\"application/json\" id=\"homeDiscoverData\">{\"baseUrl\":\"{{baseUrl}}\"}</script>",
             // Existing-subs bootstrap (api-landing/partials/api-subscription-plans.hbs)

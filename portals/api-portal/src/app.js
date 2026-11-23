@@ -130,10 +130,14 @@ registerHealthRoutes(app, {
 // of its own, and deliberately gets none — see the sessionMiddleware note above.
 app.get('/', (req, res) => res.redirect(constants.ROUTE.BASE_PATH + '/'));
 
+// The ARD manifest's path under the portal's base path (see the ARD routes below).
+const ARD_MANIFEST_PATH = `${constants.ROUTE.BASE_PATH}/.well-known/ard.json`;
+
 app.get('/robots.txt', (req, res) => {
     res.type('text/plain').send(
         'User-agent: *\nAllow: /\n\n' +
-        `# AI agent guidance: ${constants.ROUTE.BASE_PATH}/${orgContext.getHandle()}/views/{viewName}/llms.txt\n`
+        `# AI agent guidance: ${constants.ROUTE.BASE_PATH}/${orgContext.getHandle()}/views/{viewName}/llms.txt\n` +
+        (util.artifactTypeEnabled('agents') ? `# Agent discovery (ARD): ${ARD_MANIFEST_PATH}\n` : '')
     );
 });
 
@@ -152,8 +156,30 @@ app.get('/llms.txt', (req, res) => {
         `view-specific index:\n\n` +
         `  ${baseUrl}${constants.ROUTE.BASE_PATH}/${orgHandle}/views/{viewName}/llms.txt\n\n` +
         `If the user has provided a URL that contains the view name, extract it from there.\n` +
-        `If the view name is not specified, use \`default\`.\n`
+        `If the view name is not specified, use \`default\`.\n` +
+        (util.artifactTypeEnabled('agents')
+            ? `\n## Discovering agents\n\nThe ARD manifest (Agentic Resource Discovery) lists every published agent:\n\n` +
+              `  ${baseUrl}${ARD_MANIFEST_PATH}\n`
+            : '')
     );
+});
+
+// ARD (Agentic Resource Discovery) looks for its manifest at the domain root. A host
+// whose ingress forwards only BASE_PATH/* never routes the root here, so the same
+// manifest is also served under BASE_PATH, and every portal page links that copy with
+// rel="ard" (header below; the default layout has the <link>), which ARD clients MUST
+// honour (v0.91 §5.1). Like /llms.txt it needs no session, and it answers 404 unless
+// agents are enabled.
+const ardManifestGate = (req, res, next) => (util.artifactTypeEnabled('agents')
+    ? next() : res.status(404).json({ error: 'not_found' }));
+const { loadArdManifest } = require('./controllers/agentContentController');
+app.get('/.well-known/ard.json', ardManifestGate, loadArdManifest);
+app.get(ARD_MANIFEST_PATH, ardManifestGate, loadArdManifest);
+app.use(constants.ROUTE.BASE_PATH, (req, res, next) => {
+    if (req.method === 'GET' && util.artifactTypeEnabled('agents')) {
+        res.append('Link', `<${ARD_MANIFEST_PATH}>; rel="ard"; type="application/json"`);
+    }
+    next();
 });
 
 // Bound JSON/urlencoded body size (config-sourced).

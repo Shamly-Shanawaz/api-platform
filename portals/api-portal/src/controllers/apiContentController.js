@@ -1263,7 +1263,9 @@ const loadAPIContentMd = async (req, res) => {
 };
 
 async function buildLlmsTxtTemplateContent(req, orgId, orgName, viewName, configOverrides = {}) {
-    const metaDataList = await loadAPIMetaDataListFromAPI(req, orgId, orgName, null, null, viewName);
+    // Agents count only when the portal serves them (they are listed below only then too).
+    const metaDataList = (await loadAPIMetaDataListFromAPI(req, orgId, orgName, null, null, viewName))
+        .filter((api) => util.artifactFlags().showAgentsNav || api.type !== constants.API_TYPE.AGENT);
     const agentVisibleAPIs = metaDataList.filter(api => api.agentVisibility !== 'HIDDEN');
     const hiddenAPICount = metaDataList.length - agentVisibleAPIs.length;
 
@@ -1273,7 +1275,7 @@ async function buildLlmsTxtTemplateContent(req, orgId, orgName, viewName, config
     const typeConstantToEnum = Object.fromEntries(
         Object.entries(constants.API_TYPE).map(([enumKey, storedValue]) => [storedValue, enumKey])
     );
-    const byType = { REST: [], MCP: [], GRAPHQL: [], WS: [], WEBSUB: [] };
+    const byType = { REST: [], MCP: [], GRAPHQL: [], WS: [], WEBSUB: [], AGENT: [] };
     for (const api of agentVisibleAPIs) {
         const type = typeConstantToEnum[api.type];
         if (byType[type]) byType[type].push(api);
@@ -1295,6 +1297,8 @@ async function buildLlmsTxtTemplateContent(req, orgId, orgName, viewName, config
         graphqlAPIs: byType.GRAPHQL.length ? byType.GRAPHQL : null,
         wsAPIs:      byType.WS.length      ? byType.WS      : null,
         websubAPIs:  byType.WEBSUB.length  ? byType.WEBSUB  : null,
+        // Only when the portal serves agents; each links to its /agent/{handle}.md view.
+        agents:      (util.artifactFlags().showAgentsNav && byType.AGENT.length) ? byType.AGENT : null,
         workflows:   publishedWorkflows.length > 0 ? publishedWorkflows : null,
         hiddenAPICount: hiddenAPICount > 0 ? hiddenAPICount : 0,
         hiddenWorkflowCount: hiddenWorkflowCount > 0 ? hiddenWorkflowCount : 0,

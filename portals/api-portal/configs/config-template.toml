@@ -46,7 +46,9 @@
 # cert_file/key_file are required only when enabled=true (no self-signed fallback).
 
 [api_portal.server]
-base_url = '{{ env "APIP_AP_SERVER_BASE_URL" "https://localhost:9543" }}'
+# The portal's public URL. Stripe, API workflows and the ARD identifiers use it; while it
+# is a localhost address, ARD identifiers fall back to the request's host.
+base_url ='{{ env "APIP_AP_SERVER_BASE_URL" "https://localhost:9543" }}'
 port = 9543
 
 [api_portal.server.https]
@@ -532,6 +534,9 @@ auto_create_subscription_plans = true    # Auto-create Bronze/Silver/Gold/Unlimi
 # Omit the whole section to serve all of them.
 [api_portal.artifacts]
 enabled_types = ["apis", "mcp-servers", "api-workflows"]
+# With "agents" enabled, the ARD manifest (/.well-known/ard.json) identifies each
+# agent as urn:air:<host of server.base_url>:<org>:agent:<handle>. Set
+# server.base_url to the portal's public URL so those identifiers don't change.
 
 # =============================================================================
 # DESIGN MODE CONFIGURATION

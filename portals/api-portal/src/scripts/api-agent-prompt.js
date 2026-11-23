@@ -18,7 +18,25 @@
 
 let _agentMdUrl = '';
 
+// Agent pages carry the agent's name and ways of use on #agentPromptData (data-*
+// attributes, so the values arrive escaped); the prompt is worded for an agent.
+function readAgentPromptData() {
+    const el = document.getElementById('agentPromptData');
+    return el ? { name: el.dataset.name || '', kinds: el.dataset.kinds || '' } : null;
+}
+
 function buildAgentPrompt(mdUrl) {
+    const agent = readAgentPromptData();
+    if (agent) {
+        const kinds = agent.kinds ? ` It can be used this way: ${agent.kinds}.` : '';
+        return `Please fetch the details of the "${agent.name}" agent from the following URL:\n\n${mdUrl}\n\n`
+            + `It is an AI agent published in this portal.${kinds} Once you've read it, provide a structured summary covering:\n`
+            + '- What the agent does, and the skills it offers\n'
+            + '- Each way to use it (A2A, REST, events, or running it yourself), with its address\n'
+            + '- How to authenticate, and how to get credentials from this portal\n'
+            + '- An example request for one of its skills\n\n'
+            + "Then ask me what I'd like the agent to do, with a few sample requests based on its skills.";
+    }
     return `Please fetch the API details from the following URL:\n\n${mdUrl}\n\nOnce you've read it, provide a structured summary covering:\n- What this API does\n- Authentication mechanisms and how to obtain credentials\n- Available endpoints\n- Main resources and key fields in their responses\n\nThen ask me what I'd like to do with it, with a few sample options to choose from.`;
 }
 

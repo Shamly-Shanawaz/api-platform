@@ -13,7 +13,8 @@
       </div>
 
       <div class="hero-modal-info">
-        <p class="hero-modal-info-text">Use this prompt to let your AI agent discover and call this API automatically.</p>
+        {{!-- promptSubject names what the prompt is for ("agent" on an agent page); defaults to API. --}}
+        <p class="hero-modal-info-text">Use this prompt to let your AI agent discover and call this {{#if promptSubject}}{{promptSubject}}{{else}}API{{/if}} automatically.</p>
         <button type="button" class="hero-run-btn" id="apiBtnRunClaude">
           <i class="bi bi-play-fill" aria-hidden="true"></i> Run in Claude
         </button>
