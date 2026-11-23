@@ -1204,7 +1204,9 @@
   -webkit-backdrop-filter: blur(6px);
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  /* Above the fixed navbar (Bootstrap fixed-top, 1030), as the OAuth2 keys dialogs (.ok-overlay,
+     1050): at 1000 a dialog at its 90vh cap slid its top under the header. */
+  z-index: 1050;
 }
 
 .cfg-modal {
