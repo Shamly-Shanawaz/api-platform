@@ -1,0 +1,95 @@
+/* Agent Keys page — ak-* prefix. Everything shared with the OAuth2 Keys page
+   (table, modals, form controls, copy buttons) comes from oauth2-keys-page.css,
+   which the page also loads; only what that page has no equivalent for is here. */
+
+/* "Linked": the same pill as the Sandbox badge, in a neutral colour. */
+.ak-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 1.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+}
+
+/* "On behalf of users": an icon badge beside the name — a tinted circle in the
+   primary colour, large enough to read. Normal cursor; the meaning is on hover. */
+.ak-obo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-left: 0.5rem;
+  border-radius: 50%;
+  vertical-align: middle;
+  font-size: 0.875rem;
+  color: var(--primary, #1a4c6d);
+  background: color-mix(in srgb, var(--primary, #1a4c6d) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, #1a4c6d) 30%, transparent);
+  cursor: default;
+}
+
+/* Agent ID and consumer key: one line each, the value cut short (full value on
+   hover and in the copy), the copy button beside it rather than wrapped below. */
+.ak-id-cell {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+#agent-keys-table .ak-id-cell .ok-consumer-key { max-width: 7.5rem; }
+/* The name and its badges stay on one line; the ID columns give up the room. */
+#agent-keys-table .ok-name { white-space: nowrap; min-width: 12rem; }
+#agent-keys-table .ak-id-cell .ok-copy { flex-shrink: 0; }
+#agent-keys-table .ok-km-name { white-space: nowrap; }
+
+/* A caption over a group of controls rather than one input, styled as the field
+   labels it sits among (.ok-form-group label). */
+.ak-form-label {
+  display: block;
+  font-size: 0.84375rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 0.5rem;
+}
+
+.ak-group-title {
+  margin: 0.25rem 0 0.375rem;
+  font-size: 0.78125rem;
+  color: var(--text-muted);
+}
+
+.ak-group-title + .ok-checks { margin-bottom: 0.5rem; }
+
+/* Client credentials is always held: shown ticked, not changeable. */
+.ok-checks .ok-check.ak-check--fixed,
+.ok-checks .ok-check.ak-check--fixed input { cursor: default; }
+
+/* Copyable multi-line request samples in the credentials dialog. */
+.ak-sample-field { align-items: flex-start; }
+.ak-sample {
+  display: block;
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+/* Get token: the steps for a user's token, numbered, beside the request samples. */
+.ak-steps {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+.ak-steps li { margin-bottom: 0.25rem; }
+.ak-token-note { color: var(--text-strong); }

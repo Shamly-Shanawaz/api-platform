@@ -33,6 +33,11 @@
  * `unsupported_operation`, which the REST layer answers as 409. Capability is
  * therefore whatever the driver actually overrode — there is nothing to declare,
  * and so nothing that can claim an operation it cannot do.
+ *
+ * The one exception is agent keys (`agentKeys`): the developer's form has to know
+ * which grants an agent key may hold before anything is called, so a driver that
+ * overrides the agent operations also declares them, the same way it declares
+ * `keyCreation`.
  */
 
 /**
@@ -87,6 +92,33 @@ class KeyManager {
          * is the fact a caller actually needs; `type` is an implementation detail.
          */
         this.keyCreation = 'register';
+        /*
+         * AI agent keys (Keys → Agent Keys): what an agent key here may be, declared
+         * by a driver that can make them (null = it can't). `grantTypes` lists the
+         * grants an agent key may hold, each `{ value, label, forUsers }`; `forUsers`
+         * marks the ones that let the agent act on behalf of a user. Callers branch on
+         * this, never on the driver's type. (An agent made elsewhere is linked on a
+         * key manager whose keyCreation is `provide`, as an existing application is
+         * imported.)
+         */
+        this.agentKeys = null;
+        /*
+         * Where agents are registered (the key manager's `agentRegistrationEndpoint`
+         * setting). The same key manager registers applications at
+         * `registrationEndpoint`; agent keys are on only when this is set too.
+         */
+        this.agentRegistrationEndpoint = cfg.agentRegistrationEndpoint || '';
+        /*
+         * A config-file key manager's grant restriction ([api_portal.key_manager.settings]).
+         * One stored through the REST API keeps it in its configuration row instead,
+         * and this stays empty.
+         */
+        this.supportedGrantTypes = Array.isArray(cfg.supportedGrantTypes) ? cfg.supportedGrantTypes : [];
+    }
+
+    /** Whether developers get AI agent keys here: the driver can, and an agent endpoint is set. */
+    agentKeysEnabled() {
+        return Boolean(this.agentKeys && this.agentRegistrationEndpoint);
     }
 
     /** @returns {object} one KeyManagerMetadataResponseSchema entry */
@@ -120,6 +152,32 @@ class KeyManager {
     }
     async deleteKey(_consumerKey, _registration) {
         throw this._unsupported('deleteKey');
+    }
+
+    /*
+     * Agent key operations, refused like the key operations above unless a driver
+     * overrides them. A driver that overrides them also declares `agentKeys`.
+     */
+
+    /**
+     * Create an agent with an OAuth client in the identity server.
+     * @param {{name: string, description?: string, grantTypes: string[], redirectUris?: string[]}} _agent
+     * @returns {Promise<{agentId: string, consumerKey: string, consumerSecret: string}>}
+     */
+    async createAgent(_agent) {
+        throw this._unsupported('createAgent');
+    }
+    /** What the agent's client is now: `{ clientId, properties }`, properties in the shape getKey returns. */
+    async getAgent(_agentId) {
+        throw this._unsupported('getAgent');
+    }
+    /** @returns {Promise<{consumerSecret: string, properties?: object}>} a new secret; the old one stops working */
+    async rotateAgentSecret(_agentId) {
+        throw this._unsupported('rotateAgentSecret');
+    }
+    /** Delete the agent (and its client) in the identity server; a 404 there is the caller's to read. */
+    async deleteAgent(_agentId) {
+        throw this._unsupported('deleteAgent');
     }
 
     /**
@@ -293,6 +351,11 @@ class KeyManager {
         // key manager with no interactive grant simply has no authorizeEndpoint.
         if (this.description) meta.description = this.description;
         if (this.authorizeEndpoint) meta.authorizeEndpoint = this.authorizeEndpoint;
+        // Present only where developers can actually get an agent key here.
+        if (this.agentKeysEnabled()) {
+            meta.agentKeys = { ...this.agentKeys };
+            if (this.agentKeys.grantTypes) meta.agentKeys.grantTypes = this.agentKeys.grantTypes.map((g) => ({ ...g }));
+        }
         return meta;
     }
 

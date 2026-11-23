@@ -155,6 +155,8 @@ async function forKeyManager(orgId, km) {
         // has no `description` field yet.
         description: cfg.description || '',
         registrationEndpoint: cfg.registrationEndpoint,
+        // From the settings bag: set when this key manager also makes AI agent keys.
+        agentRegistrationEndpoint: cfg.agentRegistrationEndpoint || '',
         tokenEndpoint: km.token_endpoint,
         authorizeEndpoint: cfg.authorizeEndpoint,
         // Lives on `key_managers`, not on the configuration row, because a

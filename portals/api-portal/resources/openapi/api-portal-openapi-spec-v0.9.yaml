@@ -3404,6 +3404,16 @@ paths:
         manager configured.
       operationId: getKeyManagerMetadata
       parameters:
+        - name: subjectType
+          in: query
+          required: false
+          description: >-
+            `AGENT`: only the key managers the Agent Keys page uses: those that make AI agent keys (an agent
+            registration endpoint is set; they carry `agentKeys`) and those that record existing clients
+            (`keyCreation: provide`), where existing agents are linked. Omitted or `APPLICATION`: every key manager.
+          schema:
+            type: string
+            enum: [APPLICATION, AGENT]
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/offset"
       responses:
@@ -3618,6 +3628,14 @@ paths:
       operationId: listOAuth2Keys
       parameters:
         - $ref: "#/components/parameters/keyManagerIdQueryOptional"
+        - name: subjectType
+          in: query
+          required: false
+          description: >-
+            Only keys for applications (`APPLICATION`) or only keys for AI agents (`AGENT`). Omitted, both.
+          schema:
+            type: string
+            enum: [APPLICATION, AGENT]
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/offset"
       responses:
@@ -3713,6 +3731,31 @@ paths:
       security:
         - OAuth2Security:
             - dp:oauth2_key:delete
+            - dp:oauth2_key:manage
+  /oauth2-keys/{keyId}/rotate-secret:
+    parameters:
+      - $ref: "#/components/parameters/keyId"
+    post:
+      tags:
+        - OAuth2 Keys
+      summary: Rotate an AI agent key's secret
+      description: >-
+        AI agent keys only (`subjectType: AGENT`). Sets a new client secret on the agent in the identity server and
+        returns it once, in `consumerSecret`; the old secret stops working at once. Any other key is answered with
+        `409`.
+      operationId: rotateOAuth2KeySecret
+      responses:
+        "200":
+          $ref: "#/components/responses/OAuth2KeyResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:oauth2_key:update
             - dp:oauth2_key:manage
   /oauth2-keys/{keyId}/generate-token:
     parameters:
@@ -9014,6 +9057,28 @@ components:
             - register
             - provide
           example: register
+        agentKeys:
+          type: object
+          description: >-
+            Present when this key manager also makes AI agent keys (its agent registration endpoint is set): what
+            an AI agent key here may be (`subjectType: AGENT` on `POST /oauth2-keys`).
+          properties:
+            grantTypes:
+              type: array
+              description: >-
+                The grants an agent key here may hold (`client_credentials` always). `forUsers` marks a grant that
+                lets the agent act on behalf of a user.
+              items:
+                type: object
+                required: [value, label, forUsers]
+                properties:
+                  value: { type: string, example: authorization_code }
+                  label: { type: string, example: Authorization code }
+                  forUsers: { type: boolean, example: true }
+          example:
+            grantTypes:
+              - { value: client_credentials, label: Client credentials, forUsers: false }
+              - { value: urn:ietf:params:oauth:grant-type:token-exchange, label: Token exchange, forUsers: true }
         description:
           type: string
           description: One-line explanation shown under the display name.
@@ -9170,6 +9235,16 @@ components:
             `POST`/`PUT /oauth2-keys`, since a dropdown narrowed in the browser would not restrain a request sent by
             hand. A value the driver does not declare is rejected with `400`, listing the ones it does.
           example: ["client_credentials"]
+        agentRegistrationEndpoint:
+          type: string
+          format: uri
+          maxLength: 255
+          description: >-
+            Where AI agents are registered (ThunderID: its `/agents` URL). Set, this key manager also makes AI agent
+            keys (Keys → Agent Keys; `subjectType: AGENT` on `POST /oauth2-keys`), sharing its token endpoint and
+            credential. Omitted or empty: application keys only. Accepted only for a type that can make agent keys;
+            any other type answers `400`. On update, removing it while developers hold agent keys here is `409`.
+          example: https://thunder.example.com/agents
         auth:
           $ref: "#/components/schemas/KeyManagerProvisioningAuth"
       additionalProperties: false
@@ -9283,6 +9358,11 @@ components:
             The configured restriction, when one is set. Omitted entirely when there is none — an empty array would
             read as "no grant type is permitted".
           example: ["client_credentials"]
+        agentRegistrationEndpoint:
+          type: string
+          format: uri
+          description: Where AI agents are registered. Present only when this key manager also makes AI agent keys.
+          example: https://thunder.example.com/agents
         authMethod:
           type: string
           enum:
@@ -9476,6 +9556,8 @@ components:
               - password
               - urn:ietf:params:oauth:grant-type:jwt-bearer
               - urn:ietf:params:oauth:grant-type:device_code
+              # RFC 8693 token exchange: offered for AI agent keys that act on behalf of users.
+              - urn:ietf:params:oauth:grant-type:token-exchange
           uniqueItems: true
           example:
             - authorization_code
@@ -9591,6 +9673,33 @@ components:
           example: asgardeo-prod
         properties:
           $ref: "#/components/schemas/OAuth2KeyProperties"
+        subjectType:
+          type: string
+          enum: [APPLICATION, AGENT]
+          default: APPLICATION
+          description: >-
+            `AGENT` generates a key for an AI agent: the portal creates an agent in the identity server (on a
+            key manager with `agentKeys`, i.e. an agent registration endpoint) instead of registering an application, named with the
+            key name (as DCR names a client). `properties` then takes `client_name` (letters, digits, `.`, `_`,
+            `-`; up to 63), `grant_types` (from `agentKeys.grantTypes`; `client_credentials` is always included)
+            and, with `authorization_code`, `redirect_uris` (required then, refused otherwise; absolute http(s)
+            URLs, up to 10). A grant marked `forUsers` lets the agent act on behalf of users. The response
+            carries the secret once and the `agentId`.
+          example: APPLICATION
+        link:
+          type: object
+          description: >-
+            `subjectType: AGENT` only: link an agent that already exists in the identity server instead of creating
+            one, exactly as an existing application is imported: on a key manager that records existing clients
+            (`keyCreation: provide`), the agent's client ID is recorded and nothing is checked or created upstream.
+            `properties` then takes only `client_name`. Get token asks for the secret, as for an imported
+            application. A client the portal created an agent for, or one the caller already linked, is `409`.
+            Deleting the key later only unlinks it, and its secret can't be rotated here. A linked key has no
+            `agentId`.
+          required: [clientId]
+          properties:
+            clientId: { type: string, maxLength: 255 }
+          additionalProperties: false
       additionalProperties: false
     OAuth2KeyUpdateRequest:
       type: object
@@ -9678,6 +9787,33 @@ components:
             Empty together with `token_endpoint_auth_method: none` means the key is a public client and never had a
             secret. Empty with any other auth method means a secret exists but cannot be read back.
           example: ""
+        subjectType:
+          type: string
+          enum: [APPLICATION, AGENT]
+          description: >-
+            Who the key is for. `AGENT`: an AI agent key, an identity server agent with a `client_credentials` client,
+            created on a key manager with an agent registration endpoint. Its secret is rotated with
+            `POST /oauth2-keys/{keyId}/rotate-secret`; it can't be edited.
+          example: APPLICATION
+        agentId:
+          type: string
+          description: >-
+            For an AI agent key the portal created, the agent's ID in the identity server (the `sub` of its tokens).
+            Omitted for a linked agent, which is managed elsewhere.
+          example: 01a1ab1a-ad1e-7ddc-85c6-589d488b3754
+        actsForUsers:
+          type: boolean
+          description: >-
+            Present (true) on an AI agent key whose agent may act on behalf of users (it holds a grant marked
+            `forUsers`; which ones are in `properties.grant_types`). Omitted otherwise.
+          example: true
+        linked:
+          type: boolean
+          description: >-
+            Present (true) on an AI agent key that links an agent managed elsewhere (it lives on a key manager that
+            records existing clients): deleting it only unlinks it, and its secret can't be rotated here. Omitted
+            for an agent the portal created.
+          example: true
         application:
           allOf:
             - $ref: "#/components/schemas/OAuth2KeyApplication"
@@ -9742,6 +9878,30 @@ components:
             Always an empty string on list items. See `OAuth2KeyResponseSchema.consumerSecret` for how to tell a
             public client from a secret that cannot be read back.
           example: ""
+        subjectType:
+          type: string
+          enum: [APPLICATION, AGENT]
+          description: >-
+            Who the key is for. `AGENT`: an AI agent key, an identity server agent with a `client_credentials` client,
+            created on a key manager with an agent registration endpoint. Its secret is rotated with
+            `POST /oauth2-keys/{keyId}/rotate-secret`; it can't be edited.
+          example: APPLICATION
+        agentId:
+          type: string
+          description: >-
+            For an AI agent key the portal created, the agent's ID in the identity server (the `sub` of its tokens).
+            Omitted for a linked agent, which is managed elsewhere.
+          example: 01a1ab1a-ad1e-7ddc-85c6-589d488b3754
+        actsForUsers:
+          type: boolean
+          description: >-
+            Present (true) on an AI agent key whose agent may act on behalf of users (it holds a grant marked
+            `forUsers`). Omitted otherwise.
+          example: true
+        linked:
+          type: boolean
+          description: Present (true) on an AI agent key that links an agent managed elsewhere.
+          example: true
         application:
           allOf:
             - $ref: "#/components/schemas/OAuth2KeyApplication"

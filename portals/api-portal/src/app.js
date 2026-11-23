@@ -34,6 +34,7 @@ const usageContent = require('./routes/pages/usageContentRoute');
 const billingContent = require('./routes/pages/billingContentRoute');
 const apiKeysOverviewContent = require('./routes/pages/apiKeysOverviewRoute');
 const oauth2KeysContent = require('./routes/pages/oauth2KeysRoute');
+const agentKeysContent = require('./routes/pages/agentKeysRoute');
 const mcpRegistryRoute = require('./routes/pages/mcpRegistryRoute');
 const { config } = require('./config/configLoader');
 const Handlebars = require('handlebars');
@@ -315,6 +316,7 @@ if (config.designMode?.enabled) {
     portal.use(constants.ROUTE.DEFAULT, billingContent);
     portal.use(constants.ROUTE.DEFAULT, apiKeysOverviewContent);
     portal.use(constants.ROUTE.DEFAULT, oauth2KeysContent);
+    portal.use(constants.ROUTE.DEFAULT, agentKeysContent);
     // customContent is the catch-all page router and must stay last.
     portal.use(constants.ROUTE.DEFAULT, customContent);
 }

@@ -1268,6 +1268,8 @@ function validateKeyManagers(cfg) {
             ['registration_endpoint', km.registrationEndpoint],
             ['token_endpoint', km.tokenEndpoint],
             ['authorize_endpoint', km.authorizeEndpoint],
+            // Where agents are registered, when this key manager makes agent keys.
+            ['settings.agent_registration_endpoint', km.agentRegistrationEndpoint],
             /*
              * The fourth URL. `auth.token_endpoint` overrides where the portal
              * fetches its OWN provisioning token, and that request is the one

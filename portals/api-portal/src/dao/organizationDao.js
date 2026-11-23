@@ -317,6 +317,11 @@ const deleteOrgDependents = async (orgUuid, t) => {
           WHERE key_uuid IN (SELECT uuid FROM oauth2_consumer_keys WHERE org_uuid = ?)`,
         [orgUuid]
     );
+    await exec.execute(
+        `DELETE FROM oauth2_consumer_key_agent_mappings
+          WHERE key_uuid IN (SELECT uuid FROM oauth2_consumer_keys WHERE org_uuid = ?)`,
+        [orgUuid]
+    );
     await exec.execute('DELETE FROM oauth2_consumer_keys WHERE org_uuid = ?', [orgUuid]);
 
     await exec.execute('DELETE FROM applications WHERE org_uuid = ?', [orgUuid]);

@@ -131,6 +131,12 @@
         <i class="bi bi-shield-lock submenu-icon"></i>
         <span class="nav-text">OAuth2 Keys</span>
       </a>
+      {{!-- OAuth2 keys whose client is an AI agent in the identity server. --}}
+      <a {{#unless (designMode)}}href="{{baseUrl}}/agent-keys"{{else}}aria-disabled="true" tabindex="-1" title="Not available in design mode"{{/unless}}
+        class="nav-link submenu-link fw-light{{#if (designMode)}} design-disabled{{/if}}" id="agent-keys-nav">
+        <i class="bi bi-robot submenu-icon"></i>
+        <span class="nav-text">Agent Keys</span>
+      </a>
     </div>
   </nav>
 

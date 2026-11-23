@@ -741,6 +741,17 @@ max_response_bytes = 5242880   # 5 MiB
 # # Permits plain http:// for this key manager. Default true — an identity server
 # # commonly sits behind a TLS-terminating ingress. Set false to require https.
 # allow_http_endpoints    = true
+# # Optional: the settings an administrator sets for a key manager added in
+# # Settings → Key Managers, with the same checks. Unknown keys, and a value the
+# # driver can't honour, fail the boot.
+# #   supported_grant_types        which of the driver's grant types developers may
+# #                                pick (default: all of them)
+# #   agent_registration_endpoint  where AI agents are registered; set, developers
+# #                                also get AI agent keys here (Keys → Agent Keys).
+# #                                Only for a driver that can make them (thunderid).
+#   [api_portal.key_manager.settings]
+#   supported_grant_types       = ["client_credentials", "authorization_code"]
+#   agent_registration_endpoint = "https://thunder.example.com/agents"
 #
 # # Keycloak is NOT available in this build: its driver ships in the tree but is
 # # not registered (see src/keymanagers/drivers/index.js), so `type = "keycloak"`

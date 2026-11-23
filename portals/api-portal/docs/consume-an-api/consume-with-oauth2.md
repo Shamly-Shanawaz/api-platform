@@ -80,6 +80,27 @@ To remove a linked client ID, go to **Manage Keys** and click **Remove keys** fo
 
 ---
 
+## Keys for Your Own AI Agent
+
+Keys for an AI agent you build are on their own page, **Keys → Agent Keys**, when a key manager makes them. **Generate
+agent key** asks for a name and, optionally, grants that let the agent act on behalf of users (authorization code, with
+callback URLs; token exchange). The portal creates an agent identity in ThunderID and shows its consumer key, secret and
+agent ID. Copy the secret then: it isn't shown again. The agent's own tokens use the client credentials grant.
+
+**Link existing agent** adds a key for an agent that already exists in the identity server (for example one made in
+Agent Manager), the way **Import** adds an existing application on the OAuth2 Keys page: it uses a key manager that
+records existing clients (a Provision one). Give a name and the agent's consumer key (client ID); nothing is checked, and Get token
+asks for the secret (not stored). Deleting a linked key only unlinks it, and its secret is rotated where the agent is
+managed. A linked key shows no agent ID.
+
+An agent key can be associated with one of your applications from its **Application** column, as an OAuth2 key can
+(an application holds one production and one sandbox key, of either kind). Selecting a row shows the key read-only.
+
+An agent key's menu has **Rotate secret** (a new secret, shown once; the old one stops working at once) instead of
+Update. Agent keys don't appear on the OAuth2 Keys page.
+
+---
+
 ## Related
 
 - [Subscribe to an API](subscriptions.md) — subscribe before generating credentials

@@ -23,18 +23,24 @@
  * RFC 7592 read/update/delete of an already-registered client.
  *
  * Activated by `type = "thunderid"` in an [[api_portal.key_manager]] entry.
+ *
+ * Also makes AI agent keys when the key manager has an agent registration endpoint
+ * (its settings' `agentRegistrationEndpoint`): see thunderidAgents.js.
  */
 
 const { register } = require('../core/registry');
 const {
     KeyManager, prop, opt, toDcrBody, toKey,
 } = require('../core/keyManager');
+const { AGENT_KEYS, withAgentOperations } = require('./thunderidAgents');
 
 class ThunderIdKeyManager extends KeyManager {
     constructor(cfg, authRequest) {
         super(cfg);
         this.type = 'thunderid';
         this.authRequest = authRequest;
+        // Can make agent keys; it does where an agent registration endpoint is set.
+        this.agentKeys = AGENT_KEYS;
     }
 
     /*
@@ -145,6 +151,8 @@ class ThunderIdKeyManager extends KeyManager {
         return properties;
     }
 }
+
+withAgentOperations(ThunderIdKeyManager);
 
 register('thunderid', (cfg, authRequest) => new ThunderIdKeyManager(cfg, authRequest), 'ThunderID');
 

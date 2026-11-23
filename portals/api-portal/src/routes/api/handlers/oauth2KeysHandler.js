@@ -23,15 +23,23 @@
  * Mutating ops are CSRF-protected.
  */
 const oauth2KeyService = require('../../../services/oauth2KeyService');
+const agentKeyService = require('../../../services/agentKeyService');
+const { SUBJECT } = require('../../../services/agentKeys');
 const { requireCsrfForMutatingApi } = require('../../../middlewares/csrfProtection');
 const { compose } = require('./compose');
 
 module.exports = {
-    createOAuth2Key: compose(requireCsrfForMutatingApi, oauth2KeyService.createOAuth2Key),
+    // An AI agent key (subjectType AGENT) is created by the agent key service; every
+    // other key by DCR (or recorded, for a provision key manager), as before.
+    createOAuth2Key: compose(requireCsrfForMutatingApi, (req, res) => (
+        req.body && req.body.subjectType === SUBJECT.AGENT
+            ? agentKeyService.createAgentKey(req, res)
+            : oauth2KeyService.createOAuth2Key(req, res))),
     listOAuth2Keys: oauth2KeyService.listOAuth2Keys,
     getOAuth2Key: oauth2KeyService.getOAuth2Key,
     updateOAuth2Key: compose(requireCsrfForMutatingApi, oauth2KeyService.updateOAuth2Key),
     deleteOAuth2Key: compose(requireCsrfForMutatingApi, oauth2KeyService.deleteOAuth2Key),
+    rotateOAuth2KeySecret: compose(requireCsrfForMutatingApi, agentKeyService.rotateOAuth2KeySecret),
     // CSRF-protected like every other POST here: it is a state-changing request
     // that carries a credential, even though it creates nothing in the portal.
     generateOAuth2KeyToken: compose(

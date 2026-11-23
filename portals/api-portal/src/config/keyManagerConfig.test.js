@@ -366,3 +366,43 @@ test('optional text fields normalise to empty rather than undefined', () => {
     assert.equal(km.description, '');
     assert.equal(km.authorizeEndpoint, '');
 });
+
+// ---------------------------------------------------------------------------
+// [api_portal.key_manager.settings]: the same settings, and checks, as the REST API
+// ---------------------------------------------------------------------------
+
+test('settings is optional: no grant restriction and no agent keys', () => {
+    const [km] = validateKeyManagerConfig(cfg(entry()));
+    assert.deepStrictEqual(km.supportedGrantTypes, []);
+    assert.strictEqual(km.agentRegistrationEndpoint, '');
+});
+
+test('settings sets an agent registration endpoint and restricts grants on a driver that offers them', () => {
+    const [km] = validateKeyManagerConfig(cfg(entry({
+        settings: {
+            agentRegistrationEndpoint: 'https://idp.example.com/agents',
+            supportedGrantTypes: ['client_credentials'],
+        },
+    })));
+    assert.strictEqual(km.agentRegistrationEndpoint, 'https://idp.example.com/agents');
+    assert.deepStrictEqual(km.supportedGrantTypes, ['client_credentials']);
+});
+
+test('settings is a closed set, named as the file spells it', () => {
+    assert.throws(
+        () => validateKeyManagerConfig(cfg(entry({ settings: { supportsAgents: true } }))),
+        /key_manager "thunder-local": unknown setting\(s\) settings\.supports_agents; allowed: settings\.supported_grant_types, settings\.agent_registration_endpoint/
+    );
+    assert.throws(() => validateKeyManagerConfig(cfg(entry({ settings: ['x'] }))), /must be a table/);
+});
+
+test('settings refuses what the REST API refuses', () => {
+    assert.throws(() => validateKeyManagerConfig(cfg(entry({ settings: { agentRegistrationEndpoint: 42 } }))),
+        /settings\.agent_registration_endpoint must be a URL/);
+    // A driver that can't make agent keys.
+    assert.throws(() => validateKeyManagerConfig(cfg(entry({
+        type: 'custom', settings: { agentRegistrationEndpoint: 'https://idp.example.com/agents' },
+    }))), /settings\.agent_registration_endpoint is not available for this key manager type/);
+    assert.throws(() => validateKeyManagerConfig(cfg(entry({ settings: { supportedGrantTypes: ['password'] } }))),
+        /settings\.supported_grant_types contains grant type\(s\) this key manager does not offer: password/);
+});

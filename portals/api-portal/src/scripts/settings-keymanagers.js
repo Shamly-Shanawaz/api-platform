@@ -243,6 +243,8 @@
         selectDefaultType();
     }
     renderGrantTypes(on && Array.isArray(p.supportedGrantTypes) ? p.supportedGrantTypes : []);
+    sv('km-agent-registration-endpoint', on ? (p.agentRegistrationEndpoint || '') : '');
+    syncAgentEndpointField();
     sv('km-registration-endpoint', on ? p.registrationEndpoint : '');
     sv('km-authorize-endpoint', on ? (p.authorizeEndpoint || '') : '');
     el('km-auth-method').value = on ? (p.authMethod || 'client_credentials') : 'client_credentials';
@@ -337,12 +339,26 @@
     // restriction" — which is what no boxes ticked means.
     var grants = selectedGrantTypes();
     if (grants.length) provisioning.supportedGrantTypes = grants;
+    // Sent only for a type that can make agent keys; the server refuses it elsewhere.
+    // Always sent there (empty = no agent keys), since an update replaces the settings.
+    if (typeDeclaresAgentKeys()) provisioning.agentRegistrationEndpoint = v('km-agent-registration-endpoint');
     return { provisioning: provisioning };
+  }
+
+  // The agent registration endpoint is offered only for a driver that can make agent
+  // keys (the registry marks that on the type's option).
+  function typeDeclaresAgentKeys() {
+    var sel = el('km-type');
+    var opt = sel && sel.options[sel.selectedIndex];
+    return Boolean(opt && opt.getAttribute('data-agent-keys') === 'true');
+  }
+  function syncAgentEndpointField() {
+    setHidden('km-agent-endpoint-field', !typeDeclaresAgentKeys());
   }
 
   // Switching driver changes which grants exist, so the group is rebuilt — keeping
   // any still-valid choice rather than silently clearing the admin's selection.
-  el('km-type').addEventListener('change', function () { renderGrantTypes(selectedGrantTypes()); });
+  el('km-type').addEventListener('change', function () { renderGrantTypes(selectedGrantTypes()); syncAgentEndpointField(); });
 
   el('km-auth-method').addEventListener('change', syncAuthMethod);
   el('km-mode-register').addEventListener('change', syncKmMode);

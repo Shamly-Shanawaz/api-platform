@@ -542,6 +542,33 @@ CREATE TABLE IF NOT EXISTS oauth2_consumer_key_app_mappings (
 -- listing (GET /applications/{id}/oauth2-keys) needs its own index.
 CREATE INDEX IF NOT EXISTS idx_oauth2_key_app_mapping_app ON oauth2_consumer_key_app_mappings(app_uuid);
 
+-- AI agent keys. A key generated "for an AI agent" on a ThunderID key manager with an
+-- agent registration endpoint is a ThunderID *agent* with an OAuth client, not a DCR
+-- application; one linked on a Provision key manager is an agent made elsewhere. The
+-- key itself is an ordinary oauth2_consumer_keys row (the agent's client id is its
+-- consumer_key); this row marks it as an agent key and, for an agent the portal
+-- created, holds the agent's ID, which rotate and delete address at the identity
+-- server (`/agents/{agent_id}`). A row present = agent key.
+--
+-- No org_uuid: it comes through the key. agent_id has no FK: it lives in the
+-- identity server. CASCADE: the row is meaningless without its key.
+CREATE TABLE IF NOT EXISTS oauth2_consumer_key_agent_mappings (
+    key_uuid VARCHAR(40) NOT NULL,
+    portal_id VARCHAR(255) NOT NULL DEFAULT 'portal_id',
+    -- The agent's ID in the identity server, for an agent the portal created (rotate and
+    -- delete use it). NULL for a linked agent, managed elsewhere: only its client ID is known.
+    agent_id VARCHAR(255),
+    -- 1: the agent may act on behalf of users (it holds a grant for that).
+    acts_for_users SMALLINT NOT NULL DEFAULT 0,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (portal_id, key_uuid),
+    FOREIGN KEY (portal_id, key_uuid) REFERENCES oauth2_consumer_keys(portal_id, uuid) ON DELETE CASCADE
+);
+
+-- Looked up by agent_id when an agent is found in the identity server.
+CREATE INDEX IF NOT EXISTS idx_oauth2_key_agent_mapping_agent ON oauth2_consumer_key_agent_mappings(agent_id);
+
 
 -- The driver configuration that makes a `key_managers` row usable for Dynamic
 -- Client Registration. Separate from `key_managers` because that table has
@@ -600,6 +627,10 @@ CREATE TABLE IF NOT EXISTS key_manager_configurations (
     --     types a portal user may pick. Absent/empty means "whatever the driver
     --     offers", which is the backwards-compatible default. An admin restriction,
     --     not a capability statement: the key manager may well support more.
+    --   agentRegistrationEndpoint — string (URL). Where AI agents are registered, on a
+    --     driver that can make agent keys (ThunderID: its /agents URL). Set: developers
+    --     may also generate keys for AI agents here, each a ThunderID agent
+    --     (oauth2_consumer_key_agent_mappings). Absent: keys are for applications only.
     --
     -- VARCHAR(1023), not TEXT (R3-NO-TEXT) and not JSONB (R3-JSONB) — no repository
     -- query reads inside it; it is fetched whole with the row and parsed in JS.

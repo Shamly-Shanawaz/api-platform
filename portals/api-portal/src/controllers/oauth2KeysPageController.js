@@ -22,6 +22,7 @@ const constants = require('../utils/constants');
 const orgDao = require('../dao/organizationDao');
 const oauth2KeyDao = require('../dao/oauth2ConsumerKeyDao');
 const keyAppMappingDao = require('../dao/oauth2KeyAppMappingDao');
+const agentKeys = require('../services/agentKeys');
 const applicationDao = require('../dao/applicationDao');
 const kmRegistry = require('../services/keyManagerRegistry');
 
@@ -113,13 +114,15 @@ const loadOAuth2Keys = async (req, res, next) => {
             // Associations for the whole page in one query, then the applications
             // they name in a second — not two lookups per row.
             const appByKey = await keyAppMappingDao.getByKeys((records || []).map((k) => k.keyId));
+            // AI agent keys are listed on their own page (Agent keys), not here.
+            const agentByKey = await agentKeys.findByKeys((records || []).map((k) => k.keyId));
             const appNames = new Map();
             for (const appUuid of new Set(appByKey.values())) {
                 const app = await applicationDao.get(orgId, appUuid, actor);
                 if (app) appNames.set(appUuid, { id: app.handle, displayName: app.display_name });
             }
 
-            oauth2Keys = (records || []).map((k) => {
+            oauth2Keys = (records || []).filter((k) => !agentByKey.has(k.keyId)).map((k) => {
                 const app = appNames.get(appByKey.get(k.keyId));
                 return {
                     keyId: k.keyId,

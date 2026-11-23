@@ -40,6 +40,13 @@
  *     client_id     = "my-system-app"
  *     client_secret = '{{ env "THUNDER_CLIENT_SECRET" }}'
  *
+ *     [api_portal.key_manager.settings]           # optional
+ *     supported_grant_types       = ["client_credentials"]
+ *     agent_registration_endpoint = "https://thunder.example.com/agents"
+ *
+ * `settings` holds the same admin choices, with the same checks, as the REST API's
+ * settings for a key manager added in Settings (keymanagers/core/settings.js).
+ *
  * Secrets use the portal's own {{ env "NAME" }} interpolation (resolved by
  * configLoader before this runs, and fail-closed when the variable is unset),
  * not the ${NAME} form the standalone POC implemented — one interpolation
@@ -57,6 +64,7 @@
  */
 
 const { registeredTypes, getDriver } = require('../keymanagers/core/registry');
+const { validateSettings } = require('../keymanagers/core/settings');
 const constants = require('../utils/constants');
 const { ApiKey, BasicAuth, ClientCredentials, MutualTLS } = require('../keymanagers/core/authenticators');
 
@@ -211,10 +219,28 @@ function normalizeInstance(entry, i) {
         );
     }
 
+    // The same closed set of settings, and the same checks, as the REST API's.
+    let settings = { supportedGrantTypes: [], agentRegistrationEndpoint: '' };
+    if (entry.settings !== undefined) {
+        if (!entry.settings || typeof entry.settings !== 'object' || Array.isArray(entry.settings)) {
+            throw new Error(`${where}: [api_portal.key_manager.settings] must be a table`);
+        }
+        const checked = validateSettings(type, entry.settings, {
+            closed: true,
+            name: (key) => `settings.${key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)}`,
+        });
+        if (checked.error) throw new Error(`${where}: ${checked.error}`);
+        settings = checked.settings;
+    }
+
     return {
         id,
         type,
         keyType,
+        // Read by the driver (agentRegistrationEndpoint, base class) and by the key
+        // manager metadata (supportedGrantTypes narrows the grant options).
+        supportedGrantTypes: settings.supportedGrantTypes,
+        agentRegistrationEndpoint: settings.agentRegistrationEndpoint,
         displayName: need('name', 'name'),
         description: typeof entry.description === 'string' ? entry.description : '',
         registrationEndpoint: need('registrationEndpoint', 'registration_endpoint'),

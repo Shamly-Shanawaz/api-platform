@@ -59,6 +59,7 @@ stub(local('../dao/organizationDao.js'), { get: async () => ({ uuid: 'org-1' }) 
 stub(local('../services/keyManagerRegistry.js'), { list: async () => [] });
 stub(local('../dao/oauth2ConsumerKeyDao.js'), { listByCreator: async () => { if (keyRecords instanceof Error) throw keyRecords; return keyRecords; } });
 stub(local('../dao/oauth2KeyAppMappingDao.js'), { getByKeys: async () => keyToApp });
+stub(local('../dao/oauth2KeyAgentMappingDao.js'), { getByKeys: async () => new Map() });
 stub(local('../dao/applicationDao.js'), {
     get: async (_orgId, uuid) => appsByUuid.get(uuid) || null,
     list: async () => appList,

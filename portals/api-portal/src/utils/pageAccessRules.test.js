@@ -119,6 +119,7 @@ const CONSUMER_PAGES = [
     `${ORG}/applications/abc-123`,
     `${ORG}/api-keys`,
     `${ORG}/oauth2-keys`,
+    `${ORG}/agent-keys`,
     `${ORG}/subscriptions`,
     '/acme/settings',
 ];

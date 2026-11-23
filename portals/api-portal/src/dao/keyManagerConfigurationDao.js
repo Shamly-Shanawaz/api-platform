@@ -129,7 +129,7 @@ function serializeAuthConfig(cfg) {
  * that happens to be JSON. An option added by a newer build and read by an older
  * one is simply not seen, which is the same forgiving behaviour auth_config has.
  */
-const SETTINGS_KEYS = Object.freeze(['supportedGrantTypes']);
+const SETTINGS_KEYS = Object.freeze(['supportedGrantTypes', 'agentRegistrationEndpoint']);
 
 function serializeSettings(cfg) {
     const settings = {};
@@ -140,6 +140,10 @@ function serializeSettings(cfg) {
         settings.supportedGrantTypes = cfg.supportedGrantTypes
             .filter((g) => typeof g === 'string' && g.trim())
             .map((g) => g.trim());
+    }
+    // Stored only when set: absent means this key manager makes no agent keys.
+    if (typeof cfg.agentRegistrationEndpoint === 'string' && cfg.agentRegistrationEndpoint.trim()) {
+        settings.agentRegistrationEndpoint = cfg.agentRegistrationEndpoint.trim();
     }
     return Object.keys(settings).length ? JSON.stringify(settings) : null;
 }
@@ -152,6 +156,9 @@ function parseSettings(raw) {
             settings[key] = Array.isArray(parsed[key])
                 ? parsed[key].filter((g) => typeof g === 'string' && g.trim()).map((g) => g.trim())
                 : [];
+        }
+        if (key === 'agentRegistrationEndpoint') {
+            settings[key] = typeof parsed[key] === 'string' ? parsed[key] : '';
         }
     }
     return settings;

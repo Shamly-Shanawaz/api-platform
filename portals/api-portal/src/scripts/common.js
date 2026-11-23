@@ -250,7 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
             apisLink?.classList.remove('has-active-submenu');
         } else if (firstSegment === 'api-workflows') {
             document.getElementById('api-workflows')?.classList.add('active');
-        } else if (firstSegment === 'api-keys' || firstSegment === 'oauth2-keys') {
+        } else if (firstSegment === 'api-keys' || firstSegment === 'oauth2-keys' || firstSegment === 'agent-keys') {
             // Both live under "Keys": API keys the portal issues itself, OAuth2 keys it
             // has an identity server issue. Either arrival opens the section and marks
             // the parent, then the entry that matches.
@@ -259,7 +259,7 @@ document.addEventListener("DOMContentLoaded", function () {
             keysSubmenu?.classList.add('show');
             keysLink?.classList.add('active');
             keysLink?.classList.add('has-active-submenu');
-            const keysEntry = firstSegment === 'api-keys' ? 'api-keys' : 'oauth2-keys-nav';
+            const keysEntry = firstSegment === 'api-keys' ? 'api-keys' : `${firstSegment}-nav`;
             document.getElementById(keysEntry)?.classList.add('active');
         } else if (firstSegment === 'api') {
             apiSubmenu?.classList.add('show');

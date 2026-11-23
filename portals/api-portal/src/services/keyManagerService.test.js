@@ -452,3 +452,38 @@ test('_validateProvisioning drops blank entries and trims the rest', () => {
     `);
     assert.deepEqual(result, ['client_credentials']);
 });
+
+// ---------------------------------------------------------------------------
+// _validateProvisioning — agent registration endpoint (AI agent keys)
+// ---------------------------------------------------------------------------
+
+test('_validateProvisioning stores an agent registration endpoint on a driver that can make agent keys', () => {
+    const result = runProbe(`
+        emit([
+            svc._validateProvisioning(${valid({ agentRegistrationEndpoint: 'https://idp.example.com/agents' })}).cfg.agentRegistrationEndpoint,
+            svc._validateProvisioning(${valid()}).cfg.agentRegistrationEndpoint,
+            svc._validateProvisioning(${valid({ agentRegistrationEndpoint: '' })}).cfg.agentRegistrationEndpoint,
+        ]);
+    `);
+    assert.deepEqual(result, ['https://idp.example.com/agents', '', '']);
+});
+
+test('_validateProvisioning refuses an agent registration endpoint on a driver that cannot make agent keys', () => {
+    const result = runProbe(`
+        emit(svc._validateProvisioning(${valid({ type: 'wso2is', agentRegistrationEndpoint: 'https://idp.example.com/agents' })}).error);
+    `);
+    assert.match(result, /agentRegistrationEndpoint is not available for this key manager type/);
+});
+
+test('_validateProvisioning puts the agent registration endpoint through the address guard', () => {
+    const result = runProbe(`
+        emit([
+            svc._validateProvisioning(${valid({ agentRegistrationEndpoint: 'https://169.254.169.254/agents' })}).error,
+            svc._validateProvisioning(${valid({ agentRegistrationEndpoint: 'file:///etc/passwd' })}).error,
+            svc._validateProvisioning(${valid({ agentRegistrationEndpoint: 42 })}).error,
+        ]);
+    `);
+    assert.match(result[0], /blocked address range/);
+    assert.ok(result[1], 'a non-http scheme is refused');
+    assert.ok(result[2], 'a non-string is refused');
+});

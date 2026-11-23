@@ -22,7 +22,9 @@ const kmDao = require('../dao/keyManagerDao');
 const kmRegistry = require('./keyManagerRegistry');
 const kmConfigDao = require('../dao/keyManagerConfigurationDao');
 const oauth2KeyDao = require('../dao/oauth2ConsumerKeyDao');
-const { registeredTypes, getDriver } = require('../keymanagers/core/registry');
+const agentMappingDao = require('../dao/oauth2KeyAgentMappingDao');
+const { registeredTypes } = require('../keymanagers/core/registry');
+const { declaredGrantTypes, validateSettings } = require('../keymanagers/core/settings');
 const { assertDialable, buildClient } = require('../keymanagers/core/httpClient');
 const { assertAllowedScheme } = require('../utils/destinationGuard');
 const { DB_CLIENT_POLICY } = require('./keyManagerDriverBuilder');
@@ -193,37 +195,17 @@ const TYPE_IMMUTABLE_ADD_MESSAGE =
     + 'manager and imported here. That cannot be changed after creation, because keys already imported '
     + 'against it are not the portal\'s to manage. Add a new key manager instead.';
 
+const AGENT_ENDPOINT_IN_USE_MESSAGE =
+    'Developers hold AI agent keys on this key manager, so its agent registration endpoint cannot be '
+    + 'removed. Delete those agent keys first.';
+
 const TYPE_IMMUTABLE_CHANGE_MESSAGE =
     'A key manager\'s type cannot be changed after it is created: clients already registered through it '
     + 'exist at the original key manager and a different driver cannot manage them. Add a new key manager instead.';
 
 
-/**
- * The grant types a driver declares, straight from its own metadata.
- *
- * Built from a bare instance: the property descriptors are a static fact about
- * the driver, not about any one configured key manager, so no endpoints or
- * credentials are needed to read them. Returns [] when the driver declares no
- * grant_types property at all, which means "no restriction is expressible".
- */
-function _declaredGrantTypes(type) {
-    try {
-        const create = getDriver(type);
-        if (!create) return [];
-        const instance = create({});
-        const meta = typeof instance.metadata === 'function' ? instance.metadata() : null;
-        const props = (meta && meta.properties) || [];
-        const grantProp = props.find((p) => p.name === 'grant_types');
-        if (!grantProp || !Array.isArray(grantProp.options)) return [];
-        return grantProp.options.map((o) => o.value).filter(Boolean);
-    } catch (error) {
-        // A driver that cannot be introspected must not block configuring a key
-        // manager — the restriction is simply unvalidated here, and the enforcement
-        // at key-creation time still compares against live metadata.
-        logger.warn('Could not read declared grant types for driver', { type, error: error.message });
-        return [];
-    }
-}
+// The grant types a driver declares (exported for tests; the settings checks use it).
+const _declaredGrantTypes = declaredGrantTypes;
 
 function _validateProvisioning(provisioning, { isUpdate = false, existing = null } = {}) {
     const type = typeof provisioning.type === 'string' ? provisioning.type.trim() : '';
@@ -257,6 +239,15 @@ function _validateProvisioning(provisioning, { isUpdate = false, existing = null
             assertAllowedScheme(provisioning.authorizeEndpoint, { allowHttp: DB_CLIENT_POLICY.allowHttpEndpoints === true });
         } catch (err) {
             return { error: `provisioning.authorizeEndpoint: ${err.message}` };
+        }
+    }
+    if (provisioning.agentRegistrationEndpoint) {
+        try {
+            // Where agents are registered, when this key manager makes agent keys. The
+            // portal dials it, so it is held to the same policy as the registration endpoint.
+            assertDialable(provisioning.agentRegistrationEndpoint, 'provisioning.agentRegistrationEndpoint', DB_CLIENT_POLICY);
+        } catch (err) {
+            return { error: err.message };
         }
     }
 
@@ -295,37 +286,17 @@ function _validateProvisioning(provisioning, { isUpdate = false, existing = null
         };
     }
 
-    /*
-     * The admin's restriction on which grants a portal user may pick.
-     *
-     * Checked against what the driver actually declares, so a restriction cannot
-     * name a grant this key manager was never going to offer — that would silently
-     * produce an empty dropdown and a key manager nobody can create a key on.
-     * Empty means "whatever the driver offers", which is the default.
-     */
-    const grants = provisioning.supportedGrantTypes;
-    let supportedGrantTypes = [];
-    if (grants !== undefined && grants !== null) {
-        if (!Array.isArray(grants)) {
-            return { error: 'provisioning.supportedGrantTypes must be an array of grant type names.' };
-        }
-        supportedGrantTypes = grants.filter((g) => typeof g === 'string' && g.trim()).map((g) => g.trim());
-        const declared = _declaredGrantTypes(type);
-        if (declared.length) {
-            const unknown = supportedGrantTypes.filter((g) => !declared.includes(g));
-            if (unknown.length) {
-                return {
-                    error: `provisioning.supportedGrantTypes contains grant type(s) this key manager `
-                        + `does not offer: ${unknown.join(', ')}. It offers: ${declared.join(', ')}.`,
-                };
-            }
-        }
-    }
+    // The admin's settings (grant restriction, agent registration endpoint): the same
+    // checks a config file's [api_portal.key_manager.settings] table gets.
+    const checkedSettings = validateSettings(type, provisioning, { name: (key) => `provisioning.${key}` });
+    if (checkedSettings.error) return { error: checkedSettings.error };
+    const { supportedGrantTypes, agentRegistrationEndpoint } = checkedSettings.settings;
 
     return {
         cfg: {
             type,
             supportedGrantTypes,
+            agentRegistrationEndpoint,
             registrationEndpoint: provisioning.registrationEndpoint,
             authorizeEndpoint: provisioning.authorizeEndpoint || '',
             authMethod: auth.method,
@@ -635,6 +606,18 @@ const updateKeyManager = async (req, res) => {
             });
             if (checked.error) return util.sendError(res, 400, checked.error);
             provisioningCfg = checked.cfg;
+            /*
+             * Clearing the agent registration endpoint turns agent keys off here. Refused
+             * while agent keys exist: they could no longer be rotated or deleted, and
+             * their agents would live on in the identity server unseen.
+             */
+            if (existingCfg && existingCfg.agentRegistrationEndpoint && !provisioningCfg.agentRegistrationEndpoint) {
+                const stored = await kmDao.get(orgId, kmId);
+                const agentKeyCount = stored ? await agentMappingDao.countByKeyManager(orgId, stored.handle) : 0;
+                if (agentKeyCount > 0) {
+                    return util.sendError(res, 409, AGENT_ENDPOINT_IN_USE_MESSAGE);
+                }
+            }
         }
 
         const userId = util.resolveActor(req);

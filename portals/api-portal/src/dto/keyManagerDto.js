@@ -51,6 +51,8 @@ function toProvisioningView(cfg) {
     if (cfg.supportedGrantTypes && cfg.supportedGrantTypes.length) {
         view.supportedGrantTypes = cfg.supportedGrantTypes;
     }
+    // Present only when this key manager also makes AI agent keys.
+    if (cfg.agentRegistrationEndpoint) view.agentRegistrationEndpoint = cfg.agentRegistrationEndpoint;
     return view;
 }
 

@@ -171,6 +171,44 @@ const base = {
     }));
     out.deleteWithKeys = await call(svc.deleteKeyManager, as({ params: { kmId: 'primary' } }));
 
+    // --- agent registration endpoint: one key manager for app and agent keys ---
+    const provisioning = (extra) => Object.assign({
+        type: 'thunderid',
+        registrationEndpoint: 'https://idp.example.com/oauth2/dcr/register',
+        auth: { method: 'client_credentials', clientId: 'cid', clientSecret: 'secret' },
+    }, extra || {});
+    const agentsBody = (extra) => ({ ...base, id: 'thunder', displayName: 'Thunder',
+        provisioning: provisioning(extra) });
+    out.agentsCreated = await call(svc.createKeyManager, as({
+        body: agentsBody({ agentRegistrationEndpoint: 'https://idp.example.com/agents' }),
+    }));
+    out.agentsGet = await call(svc.getKeyManager, as({ params: { kmId: 'thunder' } }));
+    // No agent keys yet: the endpoint can be removed, and set again.
+    out.agentsCleared = await call(svc.updateKeyManager, as({ params: { kmId: 'thunder' }, body: agentsBody() }));
+    out.agentsSetAgain = await call(svc.updateKeyManager, as({
+        params: { kmId: 'thunder' }, body: agentsBody({ agentRegistrationEndpoint: 'https://idp.example.com/agents' }),
+    }));
+    // An agent key on it: removing the endpoint is refused; changing it is not.
+    const seedDb = new (require('node:sqlite').DatabaseSync)(${JSON.stringify('DB_FILE')});
+    seedDb.prepare(
+        \`INSERT INTO oauth2_consumer_keys
+         (uuid, org_uuid, portal_id, key_manager_id, consumer_key, name, key_type, status, created_by, updated_by)
+         VALUES (?,?,?,?,?,?,?,?,?,?)\`
+    ).run('agent-key-1', ${JSON.stringify(ORG)}, 'test-portal', 'thunder', 'agent-ck', 'bot',
+          'PRODUCTION', 'ACTIVE', 'dev', 'dev');
+    seedDb.prepare(
+        \`INSERT INTO oauth2_consumer_key_agent_mappings (key_uuid, portal_id, agent_id, created_by)
+         VALUES (?,?,?,?)\`
+    ).run('agent-key-1', 'test-portal', 'agent-1', 'dev');
+    out.agentsClearInUse = await call(svc.updateKeyManager, as({ params: { kmId: 'thunder' }, body: agentsBody() }));
+    out.agentsMoved = await call(svc.updateKeyManager, as({
+        params: { kmId: 'thunder' }, body: agentsBody({ agentRegistrationEndpoint: 'https://idp2.example.com/agents' }),
+    }));
+    out.agentsWrongType = await call(svc.createKeyManager, as({
+        body: { ...base, id: 'wso2', displayName: 'IS', provisioning: provisioning({
+            type: 'wso2is', agentRegistrationEndpoint: 'https://idp.example.com/agents' }) },
+    }));
+
     process.stdout.write('\\nPROBE_JSON:' + JSON.stringify(out) + '\\n');
     process.exit(0);
 })();
@@ -199,7 +237,7 @@ function results() {
     const cfgFile = path.join(tmpDir, 'config.toml');
     fs.writeFileSync(cfgFile, CONFIG(dbFile));
     const runner = path.join(tmpDir, 'probe.js');
-    fs.writeFileSync(runner, PROBE.replace(JSON.stringify('DB_FILE'), JSON.stringify(dbFile)));
+    fs.writeFileSync(runner, PROBE.replaceAll(JSON.stringify('DB_FILE'), JSON.stringify(dbFile)));
 
     const run = spawnSync(process.execPath, [runner, '--config', cfgFile], {
         cwd: PROJECT_ROOT,
@@ -346,4 +384,35 @@ test('a key manager with keys cannot be deleted', () => {
     const r = results().deleteWithKeys;
     assert.equal(r.status, 409);
     assert.match(JSON.stringify(r.body), /still has 1 key/);
+});
+
+// ---------------------------------------------------------------------------
+// agent registration endpoint
+// ---------------------------------------------------------------------------
+
+test('a key manager stores an agent registration endpoint in its settings and shows it', () => {
+    const r = results();
+    assert.equal(r.agentsCreated.status, 201, JSON.stringify(r.agentsCreated.body));
+    assert.equal(r.agentsGet.body.provisioning.agentRegistrationEndpoint, 'https://idp.example.com/agents');
+});
+
+test('the agent registration endpoint can be removed while no agent keys use it', () => {
+    const r = results();
+    assert.equal(r.agentsCleared.status, 200);
+    assert.equal(r.agentsCleared.body.provisioning.agentRegistrationEndpoint, undefined);
+    assert.equal(r.agentsSetAgain.status, 200);
+});
+
+test('the agent registration endpoint cannot be removed while agent keys use it, but can change', () => {
+    const r = results();
+    assert.equal(r.agentsClearInUse.status, 409);
+    assert.match(JSON.stringify(r.agentsClearInUse.body), /agent registration endpoint cannot be removed/);
+    assert.equal(r.agentsMoved.status, 200);
+    assert.equal(r.agentsMoved.body.provisioning.agentRegistrationEndpoint, 'https://idp2.example.com/agents');
+});
+
+test('a key manager type that cannot make agent keys refuses an agent registration endpoint', () => {
+    const r = results().agentsWrongType;
+    assert.equal(r.status, 400);
+    assert.match(JSON.stringify(r.body), /not available for this key manager type/);
 });

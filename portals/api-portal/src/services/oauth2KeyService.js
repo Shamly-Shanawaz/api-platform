@@ -71,6 +71,8 @@ const { getFactory } = require('../keymanagers');
 const kmConfigDao = require('../dao/keyManagerConfigurationDao');
 const kmRegistry = require('./keyManagerRegistry');
 const keyAppMappingDao = require('../dao/oauth2KeyAppMappingDao');
+// AI agent keys: which keys are, and how they read (creation is agentKeyService.js).
+const agentKeys = require('./agentKeys');
 const { KeyManagerCallError } = require('../keymanagers/core/keyManager');
 
 // ---------------------------------------------------------------------------
@@ -84,7 +86,7 @@ const { KeyManagerCallError } = require('../keymanagers/core/keyManager');
  * an API response.
  */
 
-function _toDetailDto(record, km, { secret = '', properties = {}, application } = {}) {
+function _toDetailDto(record, km, { secret = '', properties = {}, application, agent } = {}) {
     const dto = {
         keyId: record.keyId,
         // Stored at creation rather than read back, because the key manager is not
@@ -117,10 +119,10 @@ function _toDetailDto(record, km, { secret = '', properties = {}, application } 
     // a real state, not missing data. Assigned conditionally so it is omitted
     // rather than sent as null.
     if (application) dto.application = application;
-    return dto;
+    return agentKeys.markSubject(dto, agent, km);
 }
 
-function _toListItemDto(record, km, application) {
+function _toListItemDto(record, km, application, agent) {
     const dto = {
         keyId: record.keyId,
         name: record.name || '',
@@ -134,7 +136,7 @@ function _toListItemDto(record, km, application) {
         updatedAt: record.updatedAt,
     };
     if (application) dto.application = application;
-    return dto;
+    return agentKeys.markSubject(dto, agent, km);
 }
 
 /**
@@ -199,6 +201,7 @@ const REASON_TO_STATUS = Object.freeze({
     rejected: 400,
     client_not_found: 404,
     conflict: 409,
+    managed_elsewhere: 409,
     // The developer's own consumer secret or requested scope was refused. Theirs
     // to fix, so it is a 4xx and says what happened.
     token_request_rejected: 400,
@@ -231,6 +234,8 @@ const CALLER_FACING_MESSAGE = Object.freeze({
     rejected: 'The key manager rejected the supplied client metadata.',
     client_not_found: constants.ERROR_MESSAGE.OAUTH2_KEY_NOT_FOUND,
     conflict: 'The key manager reported a conflict with an existing client.',
+    managed_elsewhere: 'This client is managed by another system at the key manager and can\'t be changed or '
+        + 'deleted from the portal.',
     token_request_rejected: 'The key manager refused these credentials. Check the consumer secret, '
         + 'and that this client is allowed the scopes requested.',
     unsupported_operation: constants.ERROR_MESSAGE.OAUTH2_KEY_OPERATION_UNSUPPORTED,
@@ -378,7 +383,7 @@ async function _effectiveMetadata(orgId, km, keyManagerId) {
         const cfg = await kmConfigDao.get(orgId, entry.uuid);
         return _applyKeyManagerSettings(km.metadata(), cfg, entry);
     }
-    return _applyKeyManagerSettings(km.metadata(), null, entry);
+    return _applyKeyManagerSettings(km.metadata(), { supportedGrantTypes: km.supportedGrantTypes }, entry);
 }
 
 /**
@@ -435,18 +440,13 @@ const getKeyManagerMetadata = async (req, res) => {
         const orgId = req.orgId;
         const factory = await getFactory();
         /*
-         * Config-declared key managers. Their grant types are not restrictable —
-         * the restriction lives in `key_manager_configurations`, which a config
-         * entry has no row in — so only keyType is attached here. An operator who
-         * wants a narrower set on a config entry edits the file.
+         * Config-declared key managers, with their keyType and the grant restriction
+         * from their [api_portal.key_manager.settings] table, if any (they have no
+         * `key_manager_configurations` row to hold one).
          */
-        const configKeyTypes = new Map(
-            factory.all().map((km) => [km.id, km.keyType || constants.KEY_TYPE.PRODUCTION])
-        );
-        const metadata = factory.allMetadata().map((m) => ({
-            ...m,
-            keyType: configKeyTypes.get(m.id) || constants.KEY_TYPE.PRODUCTION,
-        }));
+        const metadata = factory.all().map((km) => _applyKeyManagerSettings(
+            km.metadata(), { supportedGrantTypes: km.supportedGrantTypes }, { key_type: km.keyType, handle: km.id }
+        ));
 
         // Every API-created key manager appears here, whichever kind it is. The
         // endpoint answers "where can I get a key", and both kinds are an answer:
@@ -485,9 +485,18 @@ const getKeyManagerMetadata = async (req, res) => {
         }
         metadata.sort((a, b) => a.id.localeCompare(b.id));
 
+        // The Agent Keys page asks with subjectType=AGENT for the key managers it can use:
+        // those that make agent keys (an agent registration endpoint is set; `agentKeys`
+        // in their metadata) and those that record existing clients (keyCreation
+        // `provide`), where existing agents are linked. Every other caller gets them all.
+        const wantAgents = req.query && req.query.subjectType === agentKeys.SUBJECT.AGENT;
+        const listed = wantAgents
+            ? metadata.filter((m) => Boolean(m.agentKeys) || m.keyCreation === 'provide')
+            : metadata;
+
         // No key manager configured is an empty list, not an error — the caller
         // renders "no key manager available" from a 200.
-        return res.status(200).json(util.toPaginatedList(metadata, req));
+        return res.status(200).json(util.toPaginatedList(listed, req));
     } catch (error) {
         logger.error(constants.ERROR_MESSAGE.KEY_MANAGER_RETRIEVE_ERROR, { error });
         return util.sendError(res, 500, constants.ERROR_MESSAGE.KEY_MANAGER_RETRIEVE_ERROR);
@@ -702,18 +711,30 @@ const listOAuth2Keys = async (req, res) => {
         // Associations for the whole page in one query, then the applications they
         // point at in a second — rather than two lookups per row.
         const appByKey = await keyAppMappingDao.getByKeys(records.map((r) => r.keyId));
+        const agentByKey = await agentKeys.findByKeys(records.map((r) => r.keyId));
         const apps = new Map();
         for (const appUuid of new Set(appByKey.values())) {
             const app = await applicationDao.get(orgId, appUuid, actor);
             if (app) apps.set(appUuid, _toApplicationDto(app));
         }
+        // Agent keys on a key manager that links (rather than creates) agents are linked.
+        const linking = await agentKeys.linkKeyManagerIds(orgId,
+            records.filter((r) => agentByKey.has(r.keyId)).map((r) => r.keyManagerId));
+        // `subjectType`: application keys only, or AI agent keys only; absent, both.
+        const { subjectType } = req.query;
         const list = [];
         for (const record of records) {
+            if (subjectType && subjectType !== (agentByKey.has(record.keyId)
+                ? agentKeys.SUBJECT.AGENT : agentKeys.SUBJECT.APPLICATION)) continue;
             const name = names.get(record.keyManagerId);
             list.push(_toListItemDto(
                 record,
-                name ? { displayName: name } : null,
-                apps.get(appByKey.get(record.keyId))
+                name || linking.has(record.keyManagerId)
+                    ? { displayName: name || record.keyManagerId,
+                        keyCreation: linking.has(record.keyManagerId) ? 'provide' : undefined }
+                    : null,
+                apps.get(appByKey.get(record.keyId)),
+                agentByKey.get(record.keyId)
             ));
         }
         return res.status(200).json(util.toPaginatedList(list, req));
@@ -744,14 +765,16 @@ const getOAuth2Key = async (req, res) => {
         // A key already issued stays readable even if its key manager was disabled;
             // the list shows it, so opening it must not 409.
         const km = await _resolveKeyManager(orgId, record.keyManagerId, { allowDisabled: true });
+        const agent = await agentKeys.findByKey(keyId);
         // The metadata lives at the key manager, so it is read from there. Two
         // cases yield an empty set instead of failing: a key manager removed
         // from config since the key was issued, and one whose driver implements
         // no read. Any other failure is real and propagates.
-        let properties = {};
+        let properties = agent ? agentKeys.clientProperties(record) : {};
         if (km) {
             try {
-                const fresh = await _withRegistration(
+                // An AI agent key's client is the agent's: read the agent back.
+                const fresh = agent ? await km.getAgent(agent.agentId) : await _withRegistration(
                     { orgId, keyId, actor },
                     (registration) => km.getKey(record.consumerKey, registration)
                 );
@@ -767,7 +790,7 @@ const getOAuth2Key = async (req, res) => {
         const application = appUuid
             ? _toApplicationDto(await applicationDao.get(orgId, appUuid, actor))
             : undefined;
-        return res.status(200).json(_toDetailDto(record, km, { properties, application }));
+        return res.status(200).json(_toDetailDto(record, km, { properties, application, agent }));
     } catch (error) {
         if (_sendKeyManagerError(res, error, constants.ERROR_MESSAGE.OAUTH2_KEY_RETRIEVE_ERROR,
             { orgId, keyId, operation: 'getKey' })) {
@@ -791,6 +814,10 @@ const updateOAuth2Key = async (req, res) => {
         const record = await oauth2KeyDao.get(orgId, keyId, actor);
         if (!record) {
             return util.sendError(res, 404, constants.ERROR_MESSAGE.OAUTH2_KEY_NOT_FOUND);
+        }
+        if (await agentKeys.findByKey(keyId)) {
+            return util.sendError(res, 409, 'An AI agent key cannot be edited. Rotate its secret, or delete it '
+                + 'and create a new one.');
         }
         const km = await _resolveKeyManager(orgId, record.keyManagerId);
         if (!km) {
@@ -896,12 +923,20 @@ const deleteOAuth2Key = async (req, res) => {
         }
 
         // Upstream first: dropping the row before the key manager confirms would
-        // leave a live OAuth client that nothing here can reach or delete.
+        // leave a live OAuth client that nothing here can reach or delete. An agent
+        // key deletes the agent (and with it its client) in the identity server; one
+        // linked on a key manager that records existing clients is someone else's
+        // agent, so only the portal's record goes (as for an imported application).
+        const agent = await agentKeys.findByKey(keyId);
         try {
-            await _withRegistration(
-                { orgId, keyId, actor },
-                (registration) => km.deleteKey(record.consumerKey, registration)
-            );
+            if (agent) {
+                if (!agentKeys.isLinkKeyManager(km)) await km.deleteAgent(agent.agentId);
+            } else {
+                await _withRegistration(
+                    { orgId, keyId, actor },
+                    (registration) => km.deleteKey(record.consumerKey, registration)
+                );
+            }
         } catch (error) {
             /*
              * The client is already gone from the key manager — deleted there
@@ -925,6 +960,7 @@ const deleteOAuth2Key = async (req, res) => {
             orgId,
             keyId,
             keyManagerId: km.id,
+            ...(agent ? { subjectType: agentKeys.SUBJECT.AGENT, agentId: agent.agentId } : {}),
             resourceUuid: keyId,
             resourceType: 'oauth2_key',
         });
@@ -1033,12 +1069,18 @@ const generateOAuth2KeyToken = async (req, res) => {
          * absence falls through to client_secret_basic, which is what a server
          * assumes when a registration does not say otherwise.
          */
+        const agent = await agentKeys.findByKey(keyId);
+
         let clientMeta = {};
         try {
-            const current = await _withRegistration(
-                { orgId, keyId, actor },
-                (registration) => km.getKey(record.consumerKey, registration)
-            );
+            // An agent key's client is fixed by the portal: client_credentials,
+            // secret in the Basic header. Nothing to read back.
+            const current = agent
+                ? { properties: { ...agentKeys.clientProperties(record), token_endpoint_auth_method: 'client_secret_basic' } }
+                : await _withRegistration(
+                    { orgId, keyId, actor },
+                    (registration) => km.getKey(record.consumerKey, registration)
+                );
             clientMeta = (current && current.properties) || {};
         } catch (readError) {
             logger.debug('Could not read the client back before issuing a token', {
@@ -1237,6 +1279,9 @@ module.exports = {
     // they are worth asserting directly rather than only through a route.
     _validateProperties,
     _applyKeyManagerSettings,
+    // For agentKeyService.js, which creates and rotates agent keys: the same response
+    // shape and the same key manager error mapping as every other key.
+    forAgentKeys: Object.freeze({ toDetailDto: _toDetailDto, sendKeyManagerError: _sendKeyManagerError }),
     getKeyManagerMetadata,
     createOAuth2Key,
     listOAuth2Keys,

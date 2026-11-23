@@ -100,9 +100,13 @@ function registeredTypeOptions() {
     return registeredTypes().map((type) => {
         let keyCreation = 'register';
         let grantTypes = [];
+        let agentKeys = false;
         try {
             const instance = drivers.get(type).create({}, null);
             if (instance && instance.keyCreation) keyCreation = instance.keyCreation;
+            // Whether this driver can make AI agent keys (so the form offers an agent
+            // registration endpoint for it).
+            agentKeys = Boolean(instance && instance.agentKeys);
             /*
              * The grant types this driver declares, so the key manager form can
              * offer exactly them when an admin restricts the set. Read from the
@@ -123,8 +127,23 @@ function registeredTypeOptions() {
             // A driver that cannot be built from an empty config keeps the default;
             // this list is for labelling a selector, never for dispatch.
         }
-        return { value: type, label: typeLabel(type), keyCreation, grantTypes };
+        return { value: type, label: typeLabel(type), keyCreation, grantTypes, agentKeys };
     });
 }
 
-module.exports = { register, getDriver, registeredTypes, typeLabel, registeredTypeOptions };
+/**
+ * Whether a driver type can make AI agent keys (declares `agentKeys`). A static fact
+ * about the driver, read from a bare instance as registeredTypeOptions does.
+ */
+function declaresAgentKeys(type) {
+    const entry = drivers.get(type);
+    if (!entry) return false;
+    try {
+        const instance = entry.create({}, null);
+        return Boolean(instance && instance.agentKeys);
+    } catch (_err) {
+        return false;
+    }
+}
+
+module.exports = { register, getDriver, registeredTypes, typeLabel, registeredTypeOptions, declaresAgentKeys };

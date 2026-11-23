@@ -1,0 +1,488 @@
+<!--
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ -->
+
+{{!-- Agent keys: OAuth2 keys whose client is an AI agent in the identity server.
+      Built from the OAuth2 Keys page's parts (its stylesheet, modals and table) so
+      the two read alike; agent-only styles are in agent-keys-page.css. --}}
+{{#pageHead}}
+  <link rel="stylesheet" href="{{basePath}}/technical-styles/oauth2-keys-page.css">
+  <link rel="stylesheet" href="{{basePath}}/technical-styles/agent-keys-page.css">
+{{/pageHead}}
+{{#pageScripts}}
+  <script src="{{basePath}}/technical-scripts/agent-keys-page.js" defer></script>
+{{/pageScripts}}
+
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Agent Keys</h1>
+      <p class="page-desc">Credentials for AI agents. Each key is an agent in a key manager, with its own agent ID that its tokens carry, so APIs can tell which agent is calling.</p>
+    </div>
+    {{!-- Both start hidden; the page script shows them when a key manager that makes
+          agent keys can serve them, as the OAuth2 Keys page does for its two buttons. --}}
+    {{#unless (designMode)}}
+    {{#if agentKeys.length}}
+    <div class="ok-head-actions">
+      <button class="dp-btn dp-btn--outline" id="ak-link-btn" type="button" hidden>
+        <i class="bi bi-link-45deg"></i> Link existing agent
+      </button>
+      <button class="dp-btn dp-btn--primary" id="ak-add-btn" type="button" hidden>
+        <i class="bi bi-plus"></i> Generate agent key
+      </button>
+    </div>
+    {{/if}}
+    {{/unless}}
+  </div>
+
+  <div id="agent-keys-root" data-base-url="{{baseUrl}}">
+    {{#if keysLoadError}}
+    <div class="ok-load-error">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span><strong>Unable to load agent keys.</strong> Refresh the page or try again later.</span>
+    </div>
+    {{else if agentKeys.length}}
+    <div class="ok-tablewrap">
+      <table class="ok-table" id="agent-keys-table">
+        <thead>
+          <tr>
+            <th>Name</th><th>Key manager</th><th>Agent ID</th><th>Consumer key</th><th>Application</th><th>Created</th><th class="ok-th-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each agentKeys}}
+          <tr class="ok-row" data-key-id="{{this.keyId}}" data-key-manager-id="{{this.keyManagerId}}"
+              data-consumer-key="{{this.consumerKey}}" data-name="{{this.name}}"
+              data-application-id="{{this.applicationId}}" data-key-type="{{this.keyType}}"
+              data-acts-for-users="{{#if this.actsForUsers}}true{{else}}false{{/if}}"
+              data-linked="{{#if this.linked}}true{{else}}false{{/if}}"
+              tabindex="0" role="button" aria-label="Open {{this.name}}">
+            <td class="ok-name">
+              {{this.name}}
+              {{#if (eq this.keyType 'SANDBOX')}}
+              <span class="ok-env-badge" title="A sandbox key — issued by a sandbox key manager">Sandbox</span>
+              {{/if}}
+              {{#if this.linked}}
+              <span class="ak-badge" title="An agent that exists elsewhere, linked here. Deleting the key only unlinks it">Linked</span>
+              {{/if}}
+              {{!-- An icon badge: a filled circle, big enough to see, beside the name. --}}
+              {{#if this.actsForUsers}}
+              <span class="ak-obo-badge" role="img" aria-label="Acts on behalf of users"
+                title="Acts on behalf of users: this agent can also get tokens on behalf of signed-in users"><i class="bi bi-person-check-fill" aria-hidden="true"></i></span>
+              {{/if}}
+            </td>
+            <td><span class="ok-km-name">{{this.keyManagerName}}</span></td>
+            {{!-- The agent ID is what its tokens carry as `sub`: the identifier APIs see.
+                  A linked agent has none here: it is managed elsewhere. --}}
+            <td>
+              {{#if this.agentId}}
+              <span class="ak-id-cell">
+                <span class="ok-consumer-key" title="{{this.agentId}}">{{this.agentId}}</span>
+                <button type="button" class="ok-copy" data-copy="{{this.agentId}}" aria-label="Copy agent ID">
+                  <i class="bi bi-copy"></i>
+                </button>
+              </span>
+              {{else}}
+              <span class="ok-km-name">—</span>
+              {{/if}}
+            </td>
+            <td>
+              <span class="ak-id-cell">
+                <span class="ok-consumer-key" title="{{this.consumerKey}}">{{this.consumerKey}}</span>
+                <button type="button" class="ok-copy" data-copy="{{this.consumerKey}}" aria-label="Copy consumer key">
+                  <i class="bi bi-copy"></i>
+                </button>
+              </span>
+            </td>
+            {{!-- As on the OAuth2 Keys page: the association, and the control that
+                  changes it. It attributes usage; it has no bearing on the key working. --}}
+            <td class="ok-app">
+              <span class="ok-app-cell">
+                {{#if this.applicationName}}
+                <span class="ok-app-name">{{this.applicationName}}</span>
+                <button type="button" class="ok-app-btn ak-row-app"
+                  title="Change application" aria-label="Change the application this key is associated with">
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+                {{else}}
+                <button type="button" class="ok-app-btn ok-app-btn--empty ak-row-app"
+                  title="Associate an application" aria-label="Associate an application with this key">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                </button>
+                {{/if}}
+              </span>
+            </td>
+            <td class="ok-created">
+              {{#if this.createdAt}}
+              <time class="ok-created-at" datetime="{{this.createdAt}}"
+                title="{{formatExpiresAt this.createdAt}}">{{formatExpiresAt this.createdAt}}</time>
+              {{else}}—{{/if}}
+            </td>
+            <td>
+              <div class="ok-actions">
+                <button type="button" class="ok-btn-token ak-row-token">
+                  <i class="bi bi-shield-check"></i> Get token
+                </button>
+                <div class="ok-menu">
+                  <button type="button" class="ok-menu-trigger ak-row-menu" aria-label="More actions"
+                    aria-haspopup="true" aria-expanded="false">
+                    <i class="bi bi-three-dots-vertical"></i>
+                  </button>
+                  <div class="ok-dropdown" role="menu">
+                    {{!-- An agent key can't be edited; its secret is rotated instead.
+                          Rotation goes through the key manager, so not a disabled one,
+                          and a linked agent's secret is rotated where it is managed. --}}
+                    {{#if this.keyManagerEnabled}}{{#unless this.linked}}
+                    <button type="button" class="ok-dropdown-item ak-row-rotate" role="menuitem">
+                      <i class="bi bi-arrow-repeat"></i> Rotate secret
+                    </button>
+                    <div class="ok-dropdown-divider"></div>
+                    {{/unless}}{{/if}}
+                    <button type="button" class="ok-dropdown-item ok-dropdown-item--danger ak-row-delete" role="menuitem">
+                      <i class="bi bi-trash"></i> {{#if this.linked}}Unlink{{else}}Delete{{/if}}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="dp-empty" id="no-agent-keys">
+      <span class="dp-empty-icon"><i class="bi bi-robot"></i></span>
+      <h2 class="dp-empty-title">No agent keys yet</h2>
+      {{!-- Which of the two texts applies depends on the key managers' metadata; the
+            script shows one. --}}
+      <p class="dp-empty-desc" id="ak-empty-available" hidden>Generate a key for an AI agent you build. The agent gets its own identity in the key manager and a consumer key and secret for requesting access tokens.</p>
+      <p class="dp-empty-desc" id="ak-empty-unavailable">No key manager issues keys for AI agents yet. Ask an administrator to set an agent registration endpoint on a key manager.</p>
+      {{#unless (designMode)}}
+      <div class="ok-empty-actions">
+        <button class="dp-btn dp-btn--primary dp-btn--lg" id="ak-add-btn-empty" type="button" hidden>
+          <i class="bi bi-plus"></i> Generate agent key
+        </button>
+        <button class="dp-btn dp-btn--outline dp-btn--lg" id="ak-link-btn-empty" type="button" hidden>
+          <i class="bi bi-link-45deg"></i> Link existing agent
+        </button>
+      </div>
+      {{/unless}}
+    </div>
+    {{/if}}
+  </div>
+
+  {{> alert }}
+
+  {{!-- Generate an agent key. The key managers, and the grants each offers agent
+        keys, come from GET /key-managers/metadata (agentKeys). --}}
+  <div class="ok-overlay" id="ak-add-modal">
+    <div class="ok-modal">
+      <div class="ok-modal-head">
+        <h2 class="ok-modal-title" id="ak-add-title">Generate agent key</h2>
+        <button type="button" class="ok-modal-close" id="ak-add-close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="ok-modal-body">
+        <div class="ok-form-group">
+          <label for="ak-km-select">Key manager <span class="ok-required">*</span></label>
+          <select id="ak-km-select" class="ok-form-input"></select>
+          <p class="ok-form-hint" id="ak-km-hint"></p>
+        </div>
+        <div class="ok-form-group">
+          <label for="ak-name">Name <span class="ok-required">*</span></label>
+          <input type="text" id="ak-name" class="ok-form-input" maxlength="63" placeholder="invoice-bot" autocomplete="off" />
+          <p class="ok-form-hint">The agent's name in the key manager. Letters, digits, dots, underscores or dashes.</p>
+        </div>
+        <div class="ok-form-group">
+          <span class="ak-form-label">Grant types</span>
+          <p class="ak-group-title">For the agent itself</p>
+          <div class="ok-checks" id="ak-grants-self"></div>
+          <div id="ak-users-group" hidden>
+            <p class="ak-group-title">On behalf of users</p>
+            <div class="ok-checks" id="ak-grants-users"></div>
+            <p class="ok-form-hint">The agent can also get tokens for a signed-in user. They name the user, with the agent as the actor.</p>
+          </div>
+        </div>
+        <div class="ok-form-group" id="ak-callbacks-group" hidden>
+          <span class="ak-form-label">Callback URLs <span class="ok-required">*</span></span>
+          <div class="ok-list">
+            <div class="ok-list-rows" id="ak-callbacks"></div>
+            <button type="button" class="ok-list-add" id="ak-callback-add"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add</button>
+          </div>
+          <p class="ok-form-hint">Where the key manager sends the user after they sign in. Needed for the authorization code grant.</p>
+        </div>
+      </div>
+      <div class="ok-modal-footer">
+        <button type="button" class="dp-btn dp-btn--outline" id="ak-add-cancel">Cancel</button>
+        <button type="button" class="dp-btn dp-btn--primary" id="ak-add-submit">Generate key</button>
+      </div>
+    </div>
+  </div>
+
+  {{!-- The caller's applications, for the associate picker (as on the OAuth2 Keys page). --}}
+  <script type="application/json" id="ak-applications-data">{{{ json applications }}}</script>
+
+  {{!-- Associate with an application: the OAuth2 Keys page's dialog. --}}
+  <div class="ok-overlay" id="ak-app-modal">
+    <div class="ok-modal">
+      <div class="ok-modal-head">
+        <h2 class="ok-modal-title">Associate with an application</h2>
+        <button type="button" class="ok-modal-close" id="ak-app-close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="ok-modal-body">
+        <p class="ok-form-hint" style="margin-top:0;">Used to attribute this key's usage. It has no effect on whether the key works. A key belongs to at most one application, and an application holds one production key and one sandbox key — an application that already has a key of this type is listed but cannot be picked.</p>
+        <div class="ok-form-group">
+          <label for="ak-app-select">Application</label>
+          <select id="ak-app-select" class="ok-form-input">
+            <option value="">— None —</option>
+          </select>
+        </div>
+      </div>
+      <div class="ok-modal-footer">
+        <button type="button" class="dp-btn dp-btn--outline" id="ak-app-cancel">Cancel</button>
+        <button type="button" class="dp-btn dp-btn--primary" id="ak-app-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  {{!-- Link an agent that already exists (made in the identity server, or by
+        another system), as Import adds an existing application on the OAuth2 Keys
+        page: its client ID is recorded, nothing is checked or created upstream. --}}
+  <div class="ok-overlay" id="ak-link-modal">
+    <div class="ok-modal">
+      <div class="ok-modal-head">
+        <h2 class="ok-modal-title">Link existing agent</h2>
+        <button type="button" class="ok-modal-close" id="ak-link-close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="ok-modal-body">
+        <div class="ok-form-group">
+          <label for="ak-link-km-select">Key manager <span class="ok-required">*</span></label>
+          <select id="ak-link-km-select" class="ok-form-input"></select>
+        </div>
+        <div class="ok-form-group">
+          <label for="ak-link-name">Name <span class="ok-required">*</span></label>
+          <input type="text" id="ak-link-name" class="ok-form-input" maxlength="63" placeholder="invoice-bot" autocomplete="off" />
+          <p class="ok-form-hint">What to call this key in the portal. Letters, digits, dots, underscores or dashes.</p>
+        </div>
+        <div class="ok-form-group">
+          <label for="ak-link-client-id">Consumer key <span class="ok-required">*</span></label>
+          <input type="text" id="ak-link-client-id" class="ok-form-input" maxlength="255" autocomplete="off" />
+        </div>
+        <p class="ok-form-hint">The consumer key (client ID) of the agent's OAuth client. Get token asks for its secret, which is not stored. Linking creates nothing in the key manager; deleting the key later only unlinks it, and the agent's secret is rotated where it is managed.</p>
+      </div>
+      <div class="ok-modal-footer">
+        <button type="button" class="dp-btn dp-btn--outline" id="ak-link-cancel">Cancel</button>
+        <button type="button" class="dp-btn dp-btn--primary" id="ak-link-submit">Link agent</button>
+      </div>
+    </div>
+  </div>
+
+  {{!-- The new (or rotated) secret: shown once, never stored. --}}
+  <div class="ok-overlay" id="ak-secret-modal">
+    <div class="ok-modal ok-modal--secret">
+      <button type="button" class="ok-modal-close ok-secret-close-abs" id="ak-secret-close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      <div class="ok-secret-hero">
+        <div class="ok-secret-success-icon"><i class="bi bi-check-lg"></i></div>
+        <h2 class="ok-secret-hero-title" id="ak-secret-title">Agent key created</h2>
+        <p class="ok-secret-hero-subtitle">On <strong id="ak-secret-km"></strong>.</p>
+      </div>
+      <div class="ok-modal-body">
+        <div class="ok-secret-label"><i class="bi bi-robot"></i> Agent ID</div>
+        <div class="ok-key-field">
+          <code class="ok-key-code" id="ak-secret-agent-id"></code>
+          <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-secret-agent-id" aria-label="Copy agent ID"><i class="bi bi-copy"></i></button>
+        </div>
+        <div class="ok-secret-label"><i class="bi bi-person-badge"></i> Consumer key</div>
+        <div class="ok-key-field">
+          <code class="ok-key-code" id="ak-secret-client-id"></code>
+          <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-secret-client-id" aria-label="Copy consumer key"><i class="bi bi-copy"></i></button>
+        </div>
+        <div class="ok-secret-label"><i class="bi bi-key"></i> Consumer secret</div>
+        <div class="ok-key-field">
+          <code class="ok-key-code" id="ak-secret-value"></code>
+          <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-secret-value" aria-label="Copy consumer secret"><i class="bi bi-copy"></i></button>
+        </div>
+        <div class="ok-warning-amber">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <span>Copy the secret now. The key manager returns it only in this response and cannot be asked for it again.</span>
+        </div>
+        <div class="ok-secret-label"><i class="bi bi-terminal"></i> Get the agent's own token</div>
+        <div class="ok-key-field ak-sample-field">
+          <pre class="ok-key-code ak-sample" id="ak-sample-self"></pre>
+          <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-sample-self" aria-label="Copy the token request"><i class="bi bi-copy"></i></button>
+        </div>
+        <div id="ak-sample-exchange-block" hidden>
+          <div class="ok-secret-label"><i class="bi bi-person-check"></i> Get a token on behalf of a user (token exchange)</div>
+          <p class="ok-form-hint">The agent exchanges the token of the user it is serving for one that names the user as <code>sub</code> and the agent as <code>act.sub</code>. Set <code>resource</code> to the API the token is for.</p>
+          <div class="ok-key-field ak-sample-field">
+            <pre class="ok-key-code ak-sample" id="ak-sample-exchange"></pre>
+            <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-sample-exchange" aria-label="Copy the token exchange request"><i class="bi bi-copy"></i></button>
+          </div>
+        </div>
+        <div id="ak-sample-code-block" hidden>
+          <div class="ok-secret-label"><i class="bi bi-box-arrow-in-right"></i> Sign a user in (authorization code)</div>
+          <p class="ok-form-hint">The agent sends the user here with a PKCE challenge, then exchanges the code it receives at its callback URL for the user's token.</p>
+          <div class="ok-key-field ak-sample-field">
+            <pre class="ok-key-code ak-sample" id="ak-sample-code"></pre>
+            <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-sample-code" aria-label="Copy the sign-in URL"><i class="bi bi-copy"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="ok-modal-footer">
+        <button type="button" class="dp-btn dp-btn--primary" id="ak-secret-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  {{!-- The agent's own token, client credentials, as on the OAuth2 Keys page. The
+        secret is asked for each time: the portal never stored it. --}}
+  <div class="ok-overlay" id="ak-token-modal">
+    <div class="ok-modal">
+      <div class="ok-modal-head">
+        <h2 class="ok-modal-title">Get an access token</h2>
+        <button type="button" class="ok-modal-close" id="ak-token-close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="ok-modal-body">
+        {{!-- Only for a key whose agent may act for users: said first, so nobody expects a
+              user's token from this button. --}}
+        <p class="ok-form-hint ak-token-note" id="ak-token-note" style="margin-top:0;" hidden>This gets the <strong>agent's own token</strong> (client credentials grant): its subject is the agent. Tokens on behalf of a user can't be taken here; the agent gets them in its own app<span id="ak-token-obo-pointer" hidden>, as shown below</span>.</p>
+        <div class="ok-form-group">
+          <label>Consumer key</label>
+          <p class="ok-token-fixed" id="ak-token-client-id"></p>
+        </div>
+        <div class="ok-form-group">
+          <label for="ak-token-secret">Consumer secret <span class="ok-required">*</span></label>
+          <input type="password" id="ak-token-secret" class="ok-form-input" autocomplete="off" />
+          <p class="ok-form-hint">Shown to you once, when the key was created or its secret rotated. The portal does not keep it.</p>
+        </div>
+        <div class="ok-form-group">
+          <label for="ak-token-scopes">Scopes</label>
+          <input type="text" id="ak-token-scopes" class="ok-form-input" placeholder="read write" />
+          <p class="ok-form-hint">Space-separated, optional. The key manager decides what this agent may actually have.</p>
+        </div>
+        <div class="ok-form-group">
+          <label for="ak-token-resources">Resource indicators</label>
+          <input type="text" id="ak-token-resources" class="ok-form-input" placeholder="https://api.example.com/orders" />
+          <p class="ok-form-hint">Space-separated absolute URIs, optional. Names the APIs this token is for.</p>
+        </div>
+        {{!-- Only for a key whose agent may act for users: the steps the agent follows in
+              its own app. Filled from the key's grants when the dialog opens. --}}
+        <div id="ak-token-obo" hidden>
+          <div class="ok-secret-label"><i class="bi bi-person-check"></i> Tokens on behalf of a user</div>
+          <p class="ok-form-hint" id="ak-token-obo-unknown" hidden>This key's grants couldn't be read from its key manager, so both ways are shown; the agent can use the ones it holds.</p>
+          <div id="ak-token-obo-exchange" hidden>
+            <p class="ak-group-title">With token exchange</p>
+            <ol class="ak-steps">
+              <li>Your app signs the user in to the key manager and gets the user's access token.</li>
+              <li>The agent exchanges it for a token of its own, with its consumer key and secret:</li>
+            </ol>
+            <div class="ok-key-field ak-sample-field">
+              <pre class="ok-key-code ak-sample" id="ak-token-sample-exchange"></pre>
+              <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-token-sample-exchange" aria-label="Copy the token exchange request"><i class="bi bi-copy"></i></button>
+            </div>
+            <ol class="ak-steps" start="3">
+              <li>The new token names the user as <code>sub</code> and the agent as <code>act.sub</code>. The agent calls the API with it, for that user.</li>
+            </ol>
+          </div>
+          <div id="ak-token-obo-code" hidden>
+            <p class="ak-group-title">With authorization code</p>
+            <ol class="ak-steps">
+              <li>The agent sends the user to sign in, with a PKCE challenge:</li>
+            </ol>
+            <div class="ok-key-field ak-sample-field">
+              <pre class="ok-key-code ak-sample" id="ak-token-sample-code"></pre>
+              <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-token-sample-code" aria-label="Copy the sign-in URL"><i class="bi bi-copy"></i></button>
+            </div>
+            <ol class="ak-steps" start="2">
+              <li>After sign-in, the key manager sends the user to the callback URL with a <code>code</code>.</li>
+              <li>The agent exchanges the code, with the PKCE verifier:</li>
+            </ol>
+            <div class="ok-key-field ak-sample-field">
+              <pre class="ok-key-code ak-sample" id="ak-token-sample-code-exchange"></pre>
+              <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-token-sample-code-exchange" aria-label="Copy the code exchange request"><i class="bi bi-copy"></i></button>
+            </div>
+            <ol class="ak-steps" start="4">
+              <li>The token names the user as <code>sub</code> and the agent as <code>act.sub</code>.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+      <div class="ok-modal-footer">
+        <button type="button" class="dp-btn dp-btn--outline" id="ak-token-cancel">Cancel</button>
+        <button type="button" class="dp-btn dp-btn--primary" id="ak-token-submit">Get token</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ok-overlay" id="ak-token-result-modal">
+    <div class="ok-modal ok-modal--secret">
+      <button type="button" class="ok-modal-close ok-secret-close-abs" id="ak-token-result-close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      <div class="ok-secret-hero">
+        <div class="ok-secret-success-icon"><i class="bi bi-check-lg"></i></div>
+        <h2 class="ok-secret-hero-title">Access token issued</h2>
+        <p class="ok-secret-hero-subtitle" id="ak-token-summary"></p>
+      </div>
+      <div class="ok-modal-body">
+        <div class="ok-secret-label"><i class="bi bi-shield-check"></i> Access token</div>
+        <div class="ok-key-field">
+          <code class="ok-key-code" id="ak-token-value"></code>
+          <button type="button" class="ok-copy ok-copy--field" data-copy-target="ak-token-value" aria-label="Copy access token"><i class="bi bi-copy"></i></button>
+        </div>
+        <div class="ok-warning-amber">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <span>This token is a live credential. It is not stored anywhere in the portal — close this and it is gone.</span>
+        </div>
+      </div>
+      <div class="ok-modal-footer">
+        <button type="button" class="dp-btn dp-btn--primary" id="ak-token-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ok-overlay" id="ak-rotate-modal">
+    <div class="ok-confirm">
+      <div class="ok-confirm-head">
+        <span class="ok-confirm-icon"><i class="bi bi-arrow-repeat"></i></span>
+        <h2 class="ok-confirm-title">Rotate secret</h2>
+      </div>
+      <p class="ok-confirm-body">
+        Issue a new secret for <strong id="ak-rotate-name"></strong>? The current secret stops working immediately, so update the agent's configuration straight after.
+      </p>
+      <div class="ok-confirm-footer">
+        <button type="button" class="dp-btn dp-btn--outline" id="ak-rotate-cancel">Cancel</button>
+        <button type="button" class="dp-btn dp-btn--primary" id="ak-rotate-confirm">Rotate secret</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ok-overlay" id="ak-delete-modal">
+    <div class="ok-confirm">
+      <div class="ok-confirm-head">
+        <span class="ok-confirm-icon"><i class="bi bi-trash"></i></span>
+        <h2 class="ok-confirm-title" id="ak-delete-title">Delete agent key</h2>
+      </div>
+      <p class="ok-confirm-body">
+        <span id="ak-delete-created">This deletes the agent <strong class="ak-delete-name"></strong> in the key manager, not just the portal's record of it. Anything using its credentials will stop working immediately. This cannot be undone.</span>
+        <span id="ak-delete-linked" hidden>This removes <strong class="ak-delete-name"></strong> from the portal. The agent stays in the key manager, and its credentials keep working.</span>
+      </p>
+      <div class="ok-confirm-footer">
+        <button type="button" class="dp-btn dp-btn--outline" id="ak-delete-cancel">Cancel</button>
+        <button type="button" class="dp-btn dp-btn--primary ok-btn-danger" id="ak-delete-confirm">Delete key</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -551,7 +551,7 @@
               without a second trip to the server. jsonAttr escapes it for an
               attribute; the script parses it back. --}}
         {{#each keyManagerTypes}}
-        <option value="{{value}}" data-grants="{{jsonAttr grantTypes}}">{{label}}</option>
+        <option value="{{value}}" data-grants="{{jsonAttr grantTypes}}"{{#if agentKeys}} data-agent-keys="true"{{/if}}>{{label}}</option>
         {{/each}}
       </select>
     </div>
@@ -625,6 +625,14 @@
       <div class="cfg-form-group" style="margin-bottom:16px;">
         <label for="km-registration-endpoint">Registration endpoint <span class="required">*</span></label>
         <input type="text" id="km-registration-endpoint" class="cfg-form-input cfg-form-input--mono" placeholder="https://idp.example.com/oauth2/dcr/register" />
+      </div>
+      {{!-- Only for a type that can make AI agent keys (ThunderID): where agents are
+            registered. Set, the same key manager also gives developers agent keys
+            (Keys → Agent Keys); the token endpoint and credential are shared. --}}
+      <div class="cfg-form-group" id="km-agent-endpoint-field" style="margin-bottom:16px;" hidden>
+        <label for="km-agent-registration-endpoint">Agent registration endpoint</label>
+        <input type="text" id="km-agent-registration-endpoint" class="cfg-form-input cfg-form-input--mono" placeholder="https://idp.example.com/agents" />
+        <p class="cfg-form-hint">Optional. Set it to let developers get keys for AI agents here too (Keys → Agent Keys). Each agent key becomes an agent in the identity server.</p>
       </div>
       {{!-- Which grants a developer may pick when creating a key here. Populated
             from the chosen driver's own declared options, so it cannot name a grant
