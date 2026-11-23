@@ -102,6 +102,50 @@ module.exports = {
         WS: "WS",
         WEBSUB: "WebSubApi",
         GRAPHQL: "GRAPHQL",
+        AGENT: "Agent",
+    },
+    // Types with their own REST family (/mcp-servers, /agents). The /apis family never
+    // lists, resolves or accepts them. Values are API_TYPE.MCP and API_TYPE.AGENT.
+    DEDICATED_FAMILY_TYPES: ["Mcp", "Agent"],
+    // kind: Agent documents. spec.types says how an agent is used; each interface
+    // says how it is called. Compare against these, never against string literals.
+    AGENT_USE_TYPES: {
+        API: "API",
+        EVENT: "EVENT",
+        LOCAL: "LOCAL",
+    },
+    AGENT_INTERFACE_TYPES: {
+        A2A: "A2A",
+        REST: "REST",
+        EVENT: "EVENT",
+    },
+    // kind: Agent document format version.
+    AGENT_API_VERSION: "api-portal.api-platform.wso2.com/v1alpha1",
+    // Display labels for well-known REST agent protocols, matched case-insensitively.
+    // Presentation only: an unknown protocol is accepted and shown as written.
+    AGENT_PROTOCOL_LABELS: {
+        OPENAI_CHAT_COMPLETIONS: "OpenAI Chat Completions",
+        OPENAI_CHAT: "OpenAI Chat Completions",
+        OPENAI_RESPONSES: "OpenAI Responses",
+        AGENT_PROTOCOL: "Agent Protocol",
+        AG_UI: "AG-UI",
+    },
+    // Length limits for kind: Agent fields (columns or display). Never echoed in errors.
+    AGENT_FIELD_LIMITS: {
+        handle: 255,
+        skillId: 128,
+        displayName: 255,
+        version: 30,
+        description: 1023,
+        url: 255,
+        protocol: 64,
+        protocolVersion: 32,
+        modelField: 128,
+        referenceId: 255,
+        agentId: 255,
+        // Upper bound on the nodes walked in one document (aliases count each time they
+        // are reached), so a small YAML with nested aliases can't expand into a huge walk.
+        documentNodes: 20000,
     },
     DOC_TYPES: {
         DOC_ID: 'DOC_',
@@ -109,6 +153,12 @@ module.exports = {
         API_LANDING: 'MARKETING',
         API_DEFINITION: 'API_DEFINITION',
         SCHEMA_DEFINITION: 'SCHEMA_DEFINITION',
+        // A2A Agent Card of an agent interface (stored as uploaded).
+        AGENT_CARD: 'AGENT_CARD',
+        // AsyncAPI document of an agent's EVENT interface (stored as uploaded).
+        AGENT_EVENT_DEFINITION: 'AGENT_EVENT_DEFINITION',
+        // Markdown that says how to run a LOCAL agent yourself (upload field localDefinition).
+        AGENT_LOCAL_DEFINITION: 'AGENT_LOCAL_DEFINITION',
         IMAGES: 'IMAGE',
         DOCUMENT: 'DOCUMENT',
         LINK: "DOC_LINK",
@@ -156,6 +206,9 @@ module.exports = {
         MCP_CREATE: ['dp:mcp_server:create', 'dp:mcp_server:manage'],
         MCP_UPDATE: ['dp:mcp_server:update', 'dp:mcp_server:manage'],
         MCP_DELETE: ['dp:mcp_server:delete', 'dp:mcp_server:manage'],
+        AGENT_CREATE: ['dp:agent:create', 'dp:agent:manage'],
+        AGENT_UPDATE: ['dp:agent:update', 'dp:agent:manage'],
+        AGENT_DELETE: ['dp:agent:delete', 'dp:agent:manage'],
     },
 
     FILE_EXTENSIONS: {

@@ -217,6 +217,16 @@ test('the shipped platform-api-system role grants exactly the seven publish + se
     ]);
 });
 
+test('the shipped roles grant the agent scopes the way they grant the MCP server ones', () => {
+    // Agents are managed by portal administrators and browsed by subscribers. The
+    // platform-api-system role doesn't publish agents yet (pinned above), so it holds none.
+    const map = roleScopeMap.loadRoleScopeMap(SHIPPED_MAPPING_PATH, SPEC_PATH);
+    assert.ok(map.get('dp_admin').includes('dp:agent:manage'));
+    assert.ok(map.get('dp_admin').includes('dp:agent_content:manage'));
+    assert.ok(map.get('dp_subscriber').includes('dp:agent:read'));
+    assert.ok(!map.get('dp_subscriber').some((scope) => scope.startsWith('dp:agent:') && scope !== 'dp:agent:read'));
+});
+
 test('the shipped admin role covers every resource the shipped subscriber role touches', () => {
     // A narrower admin than consumer would be a packaging mistake, not a policy: an
     // administrator who cannot see what a subscriber can manage is never intended.

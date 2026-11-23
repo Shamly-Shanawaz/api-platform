@@ -524,7 +524,10 @@ auto_create_subscription_plans = true    # Auto-create Bronze/Silver/Gold/Unlimi
 # than rendering an empty page. Any combination is valid; an empty list leaves a
 # portal with nothing to browse.
 #
-# Valid entries: "apis", "mcp-servers", "api-workflows".
+# Valid entries: "apis", "mcp-servers", "api-workflows", "agents".
+# "agents" is opt-in: it is not in the default list, so existing portals keep
+# serving exactly what they did until an operator adds it. While it is off, the
+# /agents admin API answers 404.
 # An unrecognised entry aborts startup, so a typo can't silently drop a type.
 # Omit the whole section to serve all of them.
 [api_portal.artifacts]
@@ -629,6 +632,9 @@ max_bytes = 10485760        # 10 MiB — single upload / single archive entry
 max_total_bytes = 52428800  # 50 MiB — total extracted per archive
 max_zip_entries = 500
 max_depth = 10
+# Largest accepted agent definition file (A2A Agent Card, OpenAPI or AsyncAPI
+# document), measured on the raw bytes before parsing. Larger files get a generic 413.
+max_agent_definition_bytes = 1048576  # 1 MiB
 
 # =============================================================================
 # API TRY-IT PROXY

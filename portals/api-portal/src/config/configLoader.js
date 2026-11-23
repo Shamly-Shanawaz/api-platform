@@ -992,7 +992,7 @@ normalizeIdpAudience(config);
 
 // Every artifact type this portal knows how to serve. `artifacts.enabled_types`
 // is an allowlist drawn from this set.
-const KNOWN_ARTIFACT_TYPES = ['apis', 'mcp-servers', 'api-workflows'];
+const KNOWN_ARTIFACT_TYPES = ['apis', 'mcp-servers', 'api-workflows', 'agents'];
 
 /**
  * Validates artifacts.enabledTypes against KNOWN_ARTIFACT_TYPES and aborts on

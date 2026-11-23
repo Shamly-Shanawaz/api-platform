@@ -3671,11 +3671,22 @@ components:
             dp:mcp_server_content:update: Update MCP server content.
             dp:mcp_server_content:delete: Delete MCP server content.
             dp:mcp_server_content:manage: Manage MCP server content.
+            dp:agent:read: Read agent metadata.
+            dp:agent:create: Create agent metadata.
+            dp:agent:update: Update agent metadata.
+            dp:agent:delete: Delete agent metadata.
+            dp:agent:manage: Manage agent metadata.
+            dp:agent_content:manage: Manage agent content (definitions, documents, images).
             dp:mcp_server_key:read: Read MCP server API keys.
             dp:mcp_server_key:create: Generate MCP server API keys.
             dp:mcp_server_key:update: Regenerate MCP server API keys.
             dp:mcp_server_key:revoke: Revoke MCP server API keys.
             dp:mcp_server_key:manage: Manage MCP server API keys.
+            dp:agent_key:read: Read agent API keys.
+            dp:agent_key:create: Generate agent API keys.
+            dp:agent_key:update: Regenerate agent API keys.
+            dp:agent_key:revoke: Revoke agent API keys.
+            dp:agent_key:manage: Manage agent API keys.
             dp:subscription_plan:read: Read subscription plans.
             dp:subscription_plan:create: Create subscription plans.
             dp:subscription_plan:update: Update subscription plans.

@@ -457,6 +457,7 @@ const DEFAULTS = {
         maxTotalBytes: 52428800, // 50 MiB — total extracted per archive
         maxZipEntries: 500,
         maxDepth: 10,
+        maxAgentDefinitionBytes: 1048576, // 1 MiB — agent card / OpenAPI / AsyncAPI, checked before parsing
     },
     // API "Try It" proxy — see src/services/tryoutProxyService.js.
     tryout: {

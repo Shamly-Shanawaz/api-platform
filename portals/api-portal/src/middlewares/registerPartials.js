@@ -205,7 +205,7 @@ async function registerAPILandingContent(req, orgId, partialObject) {
   // Scoped to the view in the URL, matching the controllers that render these partials:
   // otherwise this middleware would happily register the landing content of an artifact
   // the view excludes, before the controller's own check ran.
-  const apiId = await apiDao.getIdInView(orgId, apiHandle, req.params.viewName);
+  const apiId = await apiDao.getIdInView(orgId, apiHandle, req.params.viewName, { excludeType: constants.API_TYPE.AGENT });
   if (apiId === undefined || apiId === null) {
     throw new Error("API not found");
   }
@@ -243,7 +243,7 @@ async function registerAPILandingContent(req, orgId, partialObject) {
 async function registerDocsPageContent(req, orgId, partialObject) {
 
   const { orgName, apiHandle, viewName, docType, docName } = req.params;
-  const apiId = await apiDao.getIdInView(orgId, apiHandle, viewName);
+  const apiId = await apiDao.getIdInView(orgId, apiHandle, viewName, { excludeType: constants.API_TYPE.AGENT });
   let markdownHtml = "";
   const docContentResponse = await apiFileDao.getDocByName(constants.DOC_TYPES.DOC_ID + docType, docName + ".md", orgId, apiId);
   if (docContentResponse !== null) {

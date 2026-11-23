@@ -40,16 +40,15 @@ function normalizeOptionalId(value) {
 }
 
 /**
- * Resolves a handle to its uuid, scoped by whether the caller is operating on the
- * `/apis` family (excludes MCP-typed records) or the `/mcp-servers` family (only
- * MCP-typed records). `req.__forceApiType` is set by mcpServerKeysHandler when it
- * delegates into these shared handlers so they can be reused for both resource
- * families without duplicating their logic.
+ * Resolves a handle to its uuid, scoped by the resource family the caller is on:
+ * `/apis` excludes every type with its own family (MCP servers, agents); the
+ * `/mcp-servers` and `/agents` key handlers set `req.__forceApiType` and match only
+ * their own type.
  */
 async function resolveApiId(orgId, apiHandle, req) {
-    return req?.__forceApiType === constants.API_TYPE.MCP
-        ? apiDao.getIdByType(orgId, apiHandle, constants.API_TYPE.MCP)
-        : apiDao.getIdExcludingType(orgId, apiHandle, constants.API_TYPE.MCP);
+    return constants.DEDICATED_FAMILY_TYPES.includes(req?.__forceApiType)
+        ? apiDao.getIdByType(orgId, apiHandle, req.__forceApiType)
+        : apiDao.getIdExcludingType(orgId, apiHandle, constants.DEDICATED_FAMILY_TYPES);
 }
 
 async function resolveApiIdOrRespond(orgId, apiHandle, res, req) {

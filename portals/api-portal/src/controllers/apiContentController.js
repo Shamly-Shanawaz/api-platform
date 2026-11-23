@@ -131,7 +131,7 @@ const loadAPIs = async (req, res, next) => {
             const filteredList = metaDataList.filter(api =>
                 isMcpPage
                     ? api?.type === constants.API_TYPE.MCP
-                    : api?.type !== constants.API_TYPE.MCP
+                    : !constants.DEDICATED_FAMILY_TYPES.includes(api?.type)
             );
 
             const templateContent = {
@@ -1151,7 +1151,7 @@ const loadAPIContentMd = async (req, res) => {
 
         // View-scoped like the HTML page — the agent-facing markdown must not expose an
         // artifact the view excludes either.
-        const apiId = await apiDao.getIdInView(orgId, apiHandle, viewName);
+        const apiId = await apiDao.getIdInView(orgId, apiHandle, viewName, { excludeType: constants.API_TYPE.AGENT });
         if (!apiId) {
             return res.status(404).send('# Not Found\n\nThis API is not available in this view.');
         }
@@ -1379,7 +1379,7 @@ const loadAPIsMd = async (req, res) => {
         const agentVisibleAPIs = metaDataList.filter(api => api.agentVisibility !== 'HIDDEN');
         const hiddenAPICount = metaDataList.length - agentVisibleAPIs.length;
 
-        const nonMcpAPIs = agentVisibleAPIs.filter(api => api.type !== constants.API_TYPE.MCP);
+        const nonMcpAPIs = agentVisibleAPIs.filter(api => !constants.DEDICATED_FAMILY_TYPES.includes(api.type));
         // api.type holds the stored constant (e.g. "RestApi", "WebSubApi" — see
         // constants.API_TYPE), not the enum key used below — map it back or every
         // REST/WebSub API silently drops out of this catalog.

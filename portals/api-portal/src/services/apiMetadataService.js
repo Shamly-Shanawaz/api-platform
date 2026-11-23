@@ -341,16 +341,16 @@ function normalizeGraphQLEndpoints(apiMetadata) {
 }
 
 /**
- * Resolves a handle to its uuid, scoped by whether the caller is operating on the
- * `/apis` family (excludes MCP-typed records) or the `/mcp-servers` family (only
- * MCP-typed records). `req.__forceApiType` is set by mcpServerService when it
- * delegates into these shared handlers so they can be reused for both resource
- * families without duplicating their logic.
+ * Resolves a handle to its uuid, scoped by the resource family the caller is on:
+ * `/apis` excludes every type with its own family (MCP servers, agents); `/mcp-servers`
+ * and `/agents` match only their own type. `req.__forceApiType` is set by the family's
+ * service when it delegates into these shared handlers so they can be reused without
+ * duplicating their logic.
  */
 async function resolveScopedApiId(req, orgId, apiHandle) {
-    return req.__forceApiType === constants.API_TYPE.MCP
-        ? apiDao.getIdByType(orgId, apiHandle, constants.API_TYPE.MCP)
-        : apiDao.getIdExcludingType(orgId, apiHandle, constants.API_TYPE.MCP);
+    return constants.DEDICATED_FAMILY_TYPES.includes(req.__forceApiType)
+        ? apiDao.getIdByType(orgId, apiHandle, req.__forceApiType)
+        : apiDao.getIdExcludingType(orgId, apiHandle, constants.DEDICATED_FAMILY_TYPES);
 }
 
 /**
@@ -433,7 +433,7 @@ const getAllAPIMetadata = async (req, res) => {
         const apiVersion = req.query.version;
         const tags = req.query.tags;
         const view = req.query.view;
-        const retrievedAPIs = await getMetadataListFromDB(orgId, searchTerm, tags, apiName, apiVersion, view, { exclude: constants.API_TYPE.MCP });
+        const retrievedAPIs = await getMetadataListFromDB(orgId, searchTerm, tags, apiName, apiVersion, view, { exclude: constants.DEDICATED_FAMILY_TYPES });
         res.status(200).json(util.toPaginatedList(retrievedAPIs, req));
     } catch (error) {
         logger.error('API metadata list retrieval failed', {

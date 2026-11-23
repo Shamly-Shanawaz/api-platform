@@ -154,7 +154,7 @@ const loadSettingsPage = async (req, res) => {
         // MCP servers get their own admin tab; keep REST/WS/GraphQL/SOAP/WebSub in the APIs tab.
         // orgAllAPIs backs the client-side apiMap (edit/drawer lookups) shared by both tables.
         templateContent.orgAllAPIs = mappedAPIs;
-        templateContent.orgAPIs = mappedAPIs.filter(api => api.apiType !== constants.API_TYPE.MCP);
+        templateContent.orgAPIs = mappedAPIs.filter(api => !constants.DEDICATED_FAMILY_TYPES.includes(api.apiType));
         templateContent.orgMCPs = mappedAPIs.filter(api => api.apiType === constants.API_TYPE.MCP);
 
         let orgLabels = [];

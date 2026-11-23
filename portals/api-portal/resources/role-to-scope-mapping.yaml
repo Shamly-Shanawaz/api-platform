@@ -84,9 +84,12 @@ roles:
       - dp:api_content:manage
       - dp:mcp_server:manage
       - dp:mcp_server_content:manage
+      - dp:agent:manage
+      - dp:agent_content:manage
       - dp:api_workflow:manage
       - dp:api_key:manage
       - dp:mcp_server_key:manage
+      - dp:agent_key:manage
       - dp:application:manage
       - dp:application_key:manage
       - dp:application_key:revoke
@@ -116,12 +119,14 @@ roles:
       - dp:subscription:manage
       - dp:api_key:manage
       - dp:mcp_server_key:manage
+      - dp:agent_key:manage
       - dp:key_manager:metadata_read
       - dp:oauth2_key:manage
       - dp:api:read
       - dp:api_content:read
       - dp:mcp_server:read
       - dp:mcp_server_content:read
+      - dp:agent:read
       - dp:api_workflow:read
       - dp:subscription_plan:read
       - dp:organization:read

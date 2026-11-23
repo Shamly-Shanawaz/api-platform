@@ -38,6 +38,29 @@ const VIEW_LABEL_MAPPINGS_TABLE = 'view_label_mappings';
 const PUBLISHED_STATUSES = [constants.API_STATUS.PUBLISHED, constants.API_STATUS.DEPRECATED];
 const STATUS_PLACEHOLDERS = PUBLISHED_STATUSES.map(() => '?').join(', ');
 
+// A type filter value may be one type or a list of types: /apis has to exclude every
+// type that has its own resource family (MCP servers, agents), not just one.
+function toTypeList(value) {
+    if (value === undefined || value === null || value === '') {
+        return [];
+    }
+    return (Array.isArray(value) ? value : [value]).filter(Boolean);
+}
+
+// Appends the `{ include, exclude }` type filter to a WHERE clause under construction.
+function appendTypeFilter(conditions, params, typeFilter) {
+    const include = toTypeList(typeFilter?.include);
+    const exclude = toTypeList(typeFilter?.exclude);
+    if (include.length) {
+        conditions.push(`type IN (${include.map(() => '?').join(', ')})`);
+        params.push(...include);
+    }
+    if (exclude.length) {
+        conditions.push(`type NOT IN (${exclude.map(() => '?').join(', ')})`);
+        params.push(...exclude);
+    }
+}
+
 /**
  * Full-text search query for api_metadata (PostgreSQL only). Used by search()
  * below via db.bindNamedParams(). Named parameters:
@@ -46,8 +69,8 @@ const STATUS_PLACEHOLDERS = PUBLISHED_STATUSES.map(() => '?').join(', ');
  *   :viewId       — nullable; the view UUID to scope results to (API must have a label mapped
  *                   to this view). `view` is an optional query param — when omitted, results
  *                   are unscoped by view rather than matching nothing.
- *   :includeType  — nullable; when set, only rows with metadata.type = :includeType match
- *   :excludeType  — nullable; when set, rows with metadata.type = :excludeType are excluded
+ *   :includeTypes — nullable; comma-separated types; when set, only rows of those types match
+ *   :excludeTypes — nullable; comma-separated types; when set, rows of those types are excluded
  *                   (keeps /apis and /mcp-servers list results type-scoped at the SQL level
  *                   rather than relying on callers to filter in application code)
  *
@@ -99,8 +122,8 @@ const SEARCH_APIS_POSTGRES_SQL = `
         )
         AND metadata.org_uuid = :orgId
         AND metadata.portal_id = :portalId
-        AND (:includeType::text IS NULL OR metadata.type = :includeType)
-        AND (:excludeType::text IS NULL OR metadata.type != :excludeType)
+        AND (:includeTypes::text IS NULL OR metadata.type = ANY(string_to_array(:includeTypes, ',')))
+        AND (:excludeTypes::text IS NULL OR NOT (metadata.type = ANY(string_to_array(:excludeTypes, ','))))
         AND (
             :viewId::uuid IS NULL
             OR EXISTS (
@@ -287,8 +310,7 @@ const getByCondition = async ({ orgId, uuid, typeFilter } = {}, t, tags) => {
     const params = [getPortalId()];
     if (orgId !== undefined) { conditions.push('org_uuid = ?'); params.push(orgId); }
     if (uuid !== undefined) { conditions.push('uuid = ?'); params.push(uuid); }
-    if (typeFilter?.include) { conditions.push('type = ?'); params.push(typeFilter.include); }
-    if (typeFilter?.exclude) { conditions.push('type != ?'); params.push(typeFilter.exclude); }
+    appendTypeFilter(conditions, params, typeFilter);
 
     const tagsArray = tags ? tags.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
     if (tagsArray.length > 0) {
@@ -314,8 +336,7 @@ const list = async (orgId, viewName, t, typeFilter) => {
 
     const conditions = ['org_uuid = ?', 'portal_id = ?', `status IN (${STATUS_PLACEHOLDERS})`];
     const params = [orgId, getPortalId(), ...PUBLISHED_STATUSES];
-    if (typeFilter?.include) { conditions.push('type = ?'); params.push(typeFilter.include); }
-    if (typeFilter?.exclude) { conditions.push('type != ?'); params.push(typeFilter.exclude); }
+    appendTypeFilter(conditions, params, typeFilter);
     // Required label-in-view filter — mirrors the previous `required: true` Labels include
     // scoped to this view's mapped labels; an API with no matching label is excluded entirely.
     conditions.push(
@@ -334,8 +355,7 @@ const listFromAllViews = async (orgId, t, typeFilter) => {
     const exec = t || db;
     const conditions = ['org_uuid = ?', 'portal_id = ?', `status IN (${STATUS_PLACEHOLDERS})`];
     const params = [orgId, getPortalId(), ...PUBLISHED_STATUSES];
-    if (typeFilter?.include) { conditions.push('type = ?'); params.push(typeFilter.include); }
-    if (typeFilter?.exclude) { conditions.push('type != ?'); params.push(typeFilter.exclude); }
+    appendTypeFilter(conditions, params, typeFilter);
     // Required label filter — mirrors the previous `required: true` Labels include with no
     // where clause: only APIs that have at least one label at all are included.
     conditions.push(`EXISTS (SELECT 1 FROM ${API_LABEL_MAPPINGS_TABLE} alm WHERE alm.api_uuid = ${API_METADATA_TABLE}.uuid)`);
@@ -371,8 +391,7 @@ const searchFallback = async (orgId, searchTerm, viewName, t, typeFilter) => {
 
     const conditions = ['org_uuid = ?', 'portal_id = ?', `status IN (${STATUS_PLACEHOLDERS})`];
     const params = [orgId, getPortalId(), ...PUBLISHED_STATUSES];
-    if (typeFilter?.include) { conditions.push('type = ?'); params.push(typeFilter.include); }
-    if (typeFilter?.exclude) { conditions.push('type != ?'); params.push(typeFilter.exclude); }
+    appendTypeFilter(conditions, params, typeFilter);
 
     // metadata_search is JSONB on postgres (needs an explicit text cast for LIKE) but is
     // already TEXT/NVARCHAR on sqlite/mssql per the hand-written schema — no cast needed there.
@@ -412,8 +431,8 @@ const search = async (orgId, searchTerm, viewName, t, typeFilter) => {
         orgId,
         portalId: getPortalId(),
         viewId: viewId || null,
-        includeType: typeFilter?.include || null,
-        excludeType: typeFilter?.exclude || null,
+        includeTypes: toTypeList(typeFilter?.include).join(',') || null,
+        excludeTypes: toTypeList(typeFilter?.exclude).join(',') || null,
     });
     const rows = await exec.query(sql, params);
     await attachAssociations(rows, t);
@@ -451,7 +470,7 @@ const getIdInView = async (orgId, apiHandle, viewName, { type, excludeType } = {
     const conditions = ['handle = ?', 'org_uuid = ?', 'portal_id = ?', `status IN (${STATUS_PLACEHOLDERS})`];
     const params = [apiHandle, orgId, getPortalId(), ...PUBLISHED_STATUSES];
     if (type) { conditions.push('type = ?'); params.push(type); }
-    if (excludeType) { conditions.push('type != ?'); params.push(excludeType); }
+    appendTypeFilter(conditions, params, { exclude: excludeType });
     conditions.push(
         `EXISTS (SELECT 1 FROM ${API_LABEL_MAPPINGS_TABLE} alm
                  WHERE alm.api_uuid = ${API_METADATA_TABLE}.uuid
@@ -476,13 +495,17 @@ const getIdByType = async (orgId, apiHandle, type) => {
     return api?.uuid;
 };
 
-// Inverse of getIdByType — matches any type EXCEPT the excluded one. Used by /apis/*
-// once a type gets its own dedicated resource family (e.g. MCP via /mcp-servers), so
-// /apis/* stops resolving handles that belong to that dedicated family.
+// Inverse of getIdByType — matches any type EXCEPT the excluded one(s). Used by /apis/*
+// once a type gets its own dedicated resource family (MCP via /mcp-servers, agents via
+// /agents), so /apis/* stops resolving handles that belong to those families.
+// `excludedType` is one type or a list of types.
 const getIdExcludingType = async (orgId, apiHandle, excludedType) => {
+    const conditions = ['handle = ?', 'org_uuid = ?', 'portal_id = ?'];
+    const params = [apiHandle, orgId, getPortalId()];
+    appendTypeFilter(conditions, params, { exclude: excludedType });
     const api = await db.queryOne(
-        `SELECT uuid FROM ${API_METADATA_TABLE} WHERE handle = ? AND org_uuid = ? AND portal_id = ? AND type != ?`,
-        [apiHandle, orgId, getPortalId(), excludedType]
+        `SELECT uuid FROM ${API_METADATA_TABLE} WHERE ${conditions.join(' AND ')}`,
+        params
     );
     return api?.uuid;
 };

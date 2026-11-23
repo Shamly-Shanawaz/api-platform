@@ -170,6 +170,7 @@ const ARTIFACT_TYPE_LABELS = {
     'apis': 'APIs',
     'mcp-servers': 'MCP servers',
     'api-workflows': 'workflows',
+    'agents': 'agents',
 };
 
 const artifactTypeEnabled = (type) => (config.artifacts?.enabledTypes || []).includes(type);
@@ -197,6 +198,7 @@ function artifactFlags() {
         showApisNav: artifactTypeEnabled('apis'),
         showMcpServersNav: artifactTypeEnabled('mcp-servers'),
         showApiWorkflowsNav: artifactTypeEnabled('api-workflows'),
+        showAgentsNav: artifactTypeEnabled('agents'),
         artifactTypesLabel,
     };
 }
@@ -1476,7 +1478,7 @@ function resolveApiType(apiType) {
     const keyword = apiType.replace(/\s+/g, '').toUpperCase();
     if (!Object.prototype.hasOwnProperty.call(constants.API_TYPE, keyword)) {
         throw new ValidationError(
-            "Invalid api type. Supported values: REST, WS, GRAPHQL, SOAP, WEBSUB, MCP"
+            "Invalid api type. Supported values: REST, WS, GRAPHQL, SOAP, WEBSUB, MCP, AGENT"
         );
     }
     return constants.API_TYPE[keyword];
@@ -1516,7 +1518,8 @@ function filterAllowedAPIs(searchResults, allowedAPIs) {
  */
 const resolveApiIdInView = async (orgId, apiHandle, viewName) => {
     const apiDao = require('../dao/apiDao');
-    const apiId = await apiDao.getIdInView(orgId, apiHandle, viewName);
+    // Agents are served only by their own pages (/agent/{handle}), never as an API or MCP server.
+    const apiId = await apiDao.getIdInView(orgId, apiHandle, viewName, { excludeType: constants.API_TYPE.AGENT });
     if (!apiId) {
         const err = new Error('API not found in this view');
         err.status = 404;
@@ -1546,6 +1549,24 @@ const requireArtifactType = (type) => (req, res, next) => {
     next(err);
 };
 
+/**
+ * Admin REST counterpart of requireArtifactType: refuses every call to a resource
+ * family whose artifact type is not in [api_portal.artifacts] enabled_types, so a
+ * push into a portal that doesn't serve the type fails loudly instead of storing
+ * something no page shows. Answers 404 in the shared error shape.
+ */
+const requireArtifactTypeForApi = (type) => (req, res, next) => {
+    if (type && artifactTypeEnabled(type)) {
+        return next();
+    }
+    return res.status(404).json({
+        status: 'error',
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'Resource Not Found',
+        errors: [],
+    });
+};
+
 // Artifact type carried in the path (`/{apiType}/{handle}/...`) rather than fixed
 // by the route. The routes below reject anything outside this map before the guard
 // runs, so an unmapped value can't reach here — but requireArtifactType treats a
@@ -1568,6 +1589,7 @@ async function isAiDisabledForPortal(orgId, viewName) {
 }
 
 module.exports = {
+    artifactTypeEnabled,
     loadMarkdown,
     renderTemplate,
     renderTemplateWithView,
@@ -1601,6 +1623,8 @@ module.exports = {
     readDirTree,
     filterAllowedAPIs,
     requireArtifactType,
+    requireArtifactTypeForApi,
+    artifactFlags,
     requireArtifactTypeFromPath,
     isAiDisabledForPortal,
     resolveAiEnabled,
