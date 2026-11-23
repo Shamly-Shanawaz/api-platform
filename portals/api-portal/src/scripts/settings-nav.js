@@ -19,7 +19,7 @@
 
 // Panel navigation
 (function () {
-  var PANELS   = ['cfg-organizations', 'cfg-views', 'cfg-labels', 'cfg-plans', 'cfg-keymanagers', 'cfg-apis', 'cfg-mcps', 'cfg-billing', 'cfg-meters', 'cfg-revenue', 'cfg-webhooks', 'cfg-llm', 'cfg-workflows', 'cfg-theming'];
+  var PANELS   = ['cfg-organizations', 'cfg-views', 'cfg-labels', 'cfg-plans', 'cfg-keymanagers', 'cfg-apis', 'cfg-mcps', 'cfg-agents', 'cfg-billing', 'cfg-meters', 'cfg-revenue', 'cfg-webhooks', 'cfg-llm', 'cfg-workflows', 'cfg-theming'];
   var navItems = document.querySelectorAll('.cfg-nav-item');
   var panels   = document.querySelectorAll('.cfg-panel');
 
@@ -32,6 +32,11 @@
     if (wizard) wizard.style.display = 'none';
     var apisList = document.getElementById('cfg-apis-list');
     if (apisList) apisList.style.display = '';
+    // The agent wizard lives inside #cfg-agents and closes the same way.
+    var agentWizard = document.getElementById('cfg-agents-wizard');
+    if (agentWizard) agentWizard.style.display = 'none';
+    var agentsList = document.getElementById('cfg-agents-list');
+    if (agentsList) agentsList.style.display = '';
     navItems.forEach(function(a) { a.classList.toggle('active', a.dataset.panel === id); });
     panels.forEach(function(p)   { p.style.display = p.id === id ? 'flex' : 'none'; });
     history.replaceState(null, '', location.pathname + '#' + id);

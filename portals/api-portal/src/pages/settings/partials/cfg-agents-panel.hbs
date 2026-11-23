@@ -1,0 +1,490 @@
+{{!--
+  Settings → Agents: the list, the Add/Edit wizard (Interfaces, Details, Assets) and the
+  Deprecate and Delete dialogs. settings-agents.js drives it; the
+  document it sends is built by agent-document.js. Row actions use ag-* classes so the
+  APIs table script (settings-apis.js) never handles them; .cfg-menu-trigger only opens
+  the menu.
+--}}
+      <!-- ══ Agents ══ -->
+      <div class="cfg-panel" id="cfg-agents">
+        <div id="cfg-agents-list">
+        <div class="cfg-panel-header">
+          <div>
+            <h2 class="cfg-panel-title">Agents</h2>
+            <p class="cfg-panel-desc">Add, edit, and remove the AI agents exposed in this API Portal.</p>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="cfg-btn-primary" id="ag-add-btn" type="button">
+              <i class="bi bi-plus"></i> Add Agent
+            </button>
+          </div>
+        </div>
+
+        <div class="cfg-bulk-bar" id="ag-bulk-bar" style="display:none;" role="region" aria-label="Bulk actions">
+          <span class="cfg-bulk-bar-count" id="ag-bulk-bar-count"></span>
+          <button type="button" class="cfg-btn-danger cfg-btn-sm" id="ag-bulk-delete-btn">
+            <i class="bi bi-trash"></i> Delete selected
+          </button>
+        </div>
+
+        <div class="cfg-table-wrap">
+          <table class="cfg-table">
+            <thead>
+              <tr>
+                <th class="cfg-th-check"><input type="checkbox" id="ag-select-all" aria-label="Select all agents"></th>
+                <th>Agent</th>
+                <th>Type</th>
+                <th>Version</th>
+                <th>Status</th>
+                <th style="width:52px;"></th>
+              </tr>
+            </thead>
+            <tbody id="cfg-agents-tbody">
+              {{#orgAgents}}
+              <tr id="cfg-agent-row-{{apiId}}">
+                <td class="cfg-td-check">
+                  <input type="checkbox" class="cfg-row-check ag-row-check" data-id="{{apiId}}" data-name="{{apiName}}" aria-label="Select {{apiName}}">
+                </td>
+                <td>
+                  <div class="cfg-api-cell">
+                    <span class="cfg-api-avatar cfg-api-avatar--agent">{{firstTwoLetters apiName}}</span>
+                    <div>
+                      <div class="cfg-cell-name">{{apiName}}</div>
+                      <div class="cfg-cell-context">/{{apiHandle}}</div>
+                    </div>
+                  </div>
+                </td>
+                {{!-- One type badge per kind, as APIs show theirs; settings-agents.js splits the list. --}}
+                <td class="ag-kinds" data-kinds="{{kinds}}">{{kinds}}</td>
+                <td class="cfg-cell-version">{{apiVersion}}</td>
+                <td>
+                  {{#if (eq apiStatus "DEPRECATED")}}
+                  <span class="cfg-status-badge cfg-status-deprecated"><span class="cfg-status-dot"></span>Deprecated</span>
+                  {{else}}
+                  <span class="cfg-status-badge cfg-status-published"><span class="cfg-status-dot"></span>Published</span>
+                  {{/if}}
+                </td>
+                <td class="cfg-cell-actions">
+                  <button class="cfg-action-btn cfg-menu-trigger" type="button" aria-label="Agent actions">
+                    <i class="bi bi-three-dots-vertical"></i>
+                  </button>
+                  <div class="cfg-dropdown">
+                    <button class="cfg-dropdown-item ag-edit" type="button" data-id="{{apiId}}">
+                      <i class="bi bi-pencil"></i> Edit
+                    </button>
+                    {{#if (eq apiStatus "DEPRECATED")}}
+                    <button class="cfg-dropdown-item ag-status" type="button" data-id="{{apiId}}" data-name="{{apiName}}" data-status="PUBLISHED">
+                      <i class="bi bi-cloud-upload"></i> Publish
+                    </button>
+                    {{else}}
+                    <button class="cfg-dropdown-item ag-status" type="button" data-id="{{apiId}}" data-name="{{apiName}}" data-status="DEPRECATED">
+                      <i class="bi bi-archive"></i> Deprecate
+                    </button>
+                    {{/if}}
+                    <div class="cfg-dropdown-divider"></div>
+                    <button class="cfg-dropdown-item cfg-dropdown-item--danger ag-delete" type="button"
+                      data-id="{{apiId}}" data-name="{{apiName}}">
+                      <i class="bi bi-trash"></i> Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {{/orgAgents}}
+              {{#unless orgAgents.length}}
+              <tr><td colspan="6" class="cfg-empty-row">No agents found. Click <strong>Add Agent</strong> to get started.</td></tr>
+              {{/unless}}
+            </tbody>
+          </table>
+        </div>
+        </div><!-- /#cfg-agents-list -->
+
+        <!-- Agent wizard: Interfaces, Details, Skills and identity, Assets; the same steps when adding and editing. -->
+        <div id="cfg-agents-wizard" style="display:none;">
+          <a href="#" class="cfg-wizard-back" id="ag-wz-back-link"><i class="bi bi-arrow-left"></i> Back to Agents</a>
+          <h2 class="cfg-panel-title" id="ag-wz-title" style="margin:14px 0 0;">Add Agent</h2>
+
+          <div class="cfg-stepper">
+            <div class="cfg-step cfg-step--active" data-ag-step="0"><span class="cfg-step-circle">1</span><span class="cfg-step-label">Interfaces</span></div>
+            <div class="cfg-step-connector"></div>
+            <div class="cfg-step" data-ag-step="1"><span class="cfg-step-circle">2</span><span class="cfg-step-label">Details</span></div>
+            <div class="cfg-step-connector"></div>
+            <div class="cfg-step" data-ag-step="2"><span class="cfg-step-circle">3</span><span class="cfg-step-label">Skills and identity</span></div>
+            <div class="cfg-step-connector"></div>
+            <div class="cfg-step" data-ag-step="3"><span class="cfg-step-circle">4</span><span class="cfg-step-label">Assets</span></div>
+          </div>
+
+          <!-- Step 1: Interfaces. First, so an Agent Card can fill the details. -->
+          <div class="cfg-wizard-step" id="ag-wstep-0" style="max-width:720px;">
+            <p class="cfg-wstep-desc">How developers use this agent. Pick one or more; an agent has at most one interface of each kind, each with its definition file.</p>
+
+            <div class="ag-iface" data-ag-kind="A2A">
+              <label class="ag-iface-head" for="ag-use-a2a">
+                <span class="ag-iface-icon" aria-hidden="true"><i class="bi bi-diagram-3"></i></span>
+                <span class="ag-iface-text"><strong>A2A</strong><span>Called over the A2A protocol.</span></span>
+                <input type="checkbox" id="ag-use-a2a" class="ag-iface-toggle">
+              </label>
+              <div class="cfg-form-grid ag-iface-body" style="display:none;">
+                <div class="cfg-form-group"><label for="ag-a2a-prod">Production URL <span class="required">*</span></label>
+                  <input type="text" id="ag-a2a-prod" class="cfg-form-input cfg-form-input--mono" placeholder="https://agents.example.com/triage" /></div>
+                <div class="cfg-form-group"><label for="ag-a2a-sandbox">Sandbox URL</label>
+                  <input type="text" id="ag-a2a-sandbox" class="cfg-form-input cfg-form-input--mono" /></div>
+                <div class="cfg-form-group cfg-form-group-full"><label for="ag-a2a-card-url">Agent Card URL</label>
+                  <input type="text" id="ag-a2a-card-url" class="cfg-form-input cfg-form-input--mono" aria-describedby="ag-a2a-card-url-hint" />
+                  <p class="cfg-field-hint" id="ag-a2a-card-url-hint">Where A2A clients read the live card, e.g. at your gateway. Leave empty if you don't publish one.</p></div>
+                <div class="cfg-form-group cfg-form-group-full">
+                  <label>Agent Card <span class="required">*</span></label>
+<div class="ag-file" data-ag-file="a2a">
+                    <label class="cfg-upload-compact ag-file-zone">
+                      <i class="bi bi-file-earmark-arrow-up ag-file-icon" aria-hidden="true"></i>
+                      <span class="ag-file-label">Drag &amp; drop or <span>browse</span> <span class="ag-file-types">— .json</span></span>
+                      <input type="file" id="ag-a2a-file" accept=".json" />
+                    </label>
+                    <div class="cfg-spec-chip" id="ag-a2a-chip">
+                      <span class="cfg-spec-icon"><i class="bi bi-file-check"></i></span>
+                      <div style="min-width:0;flex:1;"><div class="cfg-spec-name" id="ag-a2a-name"></div><div class="cfg-spec-sub">Ready to upload</div></div>
+                      <button type="button" class="cfg-action-btn ag-file-remove" aria-label="Remove file"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="cfg-spec-onfile" id="ag-a2a-onfile" style="display:none;"><i class="bi bi-check-circle-fill"></i><span>Agent Card on file — attach a new file above to replace it</span></div>
+                  </div>
+                  <p class="cfg-field-hint">Its skills, transports and auth are shown on the agent page, and the name, version and description default from it.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="ag-iface" data-ag-kind="REST">
+              <label class="ag-iface-head" for="ag-use-rest">
+                <span class="ag-iface-icon" aria-hidden="true"><i class="bi bi-braces"></i></span>
+                <span class="ag-iface-text"><strong>REST</strong><span>Called over HTTP.</span></span>
+                <input type="checkbox" id="ag-use-rest" class="ag-iface-toggle">
+              </label>
+              <div class="cfg-form-grid ag-iface-body" style="display:none;">
+                <div class="cfg-form-group"><label for="ag-rest-prod">Production URL <span class="required">*</span></label>
+                  <input type="text" id="ag-rest-prod" class="cfg-form-input cfg-form-input--mono" placeholder="https://api.example.com/triage/v1" /></div>
+                <div class="cfg-form-group"><label for="ag-rest-sandbox">Sandbox URL</label>
+                  <input type="text" id="ag-rest-sandbox" class="cfg-form-input cfg-form-input--mono" /></div>
+                <div class="cfg-form-group"><label for="ag-rest-protocol">Protocol</label>
+                  <input type="text" id="ag-rest-protocol" class="cfg-form-input" placeholder="e.g. OPENAI_RESPONSES (optional)" /></div>
+                <div class="cfg-form-group cfg-form-group-full">
+                  <label>OpenAPI document <span class="required">*</span></label>
+<div class="ag-file" data-ag-file="rest">
+                    <label class="cfg-upload-compact ag-file-zone">
+                      <i class="bi bi-file-earmark-arrow-up ag-file-icon" aria-hidden="true"></i>
+                      <span class="ag-file-label">Drag &amp; drop or <span>browse</span> <span class="ag-file-types">— .yaml, .yml or .json</span></span>
+                      <input type="file" id="ag-rest-file" accept=".yaml,.yml,.json" />
+                    </label>
+                    <div class="cfg-spec-chip" id="ag-rest-chip">
+                      <span class="cfg-spec-icon"><i class="bi bi-file-check"></i></span>
+                      <div style="min-width:0;flex:1;"><div class="cfg-spec-name" id="ag-rest-name"></div><div class="cfg-spec-sub">Ready to upload</div></div>
+                      <button type="button" class="cfg-action-btn ag-file-remove" aria-label="Remove file"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="cfg-spec-onfile" id="ag-rest-onfile" style="display:none;"><i class="bi bi-check-circle-fill"></i><span>OpenAPI document on file — attach a new file above to replace it</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ag-iface" data-ag-kind="EVENT">
+              <label class="ag-iface-head" for="ag-use-event">
+                <span class="ag-iface-icon" aria-hidden="true"><i class="bi bi-broadcast"></i></span>
+                <span class="ag-iface-text"><strong>Events</strong><span>Reached through a message broker.</span></span>
+                <input type="checkbox" id="ag-use-event" class="ag-iface-toggle">
+              </label>
+              <div class="cfg-form-grid ag-iface-body" style="display:none;">
+                <div class="cfg-form-group cfg-form-group-full">
+                  <label>AsyncAPI document <span class="required">*</span></label>
+<div class="ag-file" data-ag-file="event">
+                    <label class="cfg-upload-compact ag-file-zone">
+                      <i class="bi bi-file-earmark-arrow-up ag-file-icon" aria-hidden="true"></i>
+                      <span class="ag-file-label">Drag &amp; drop or <span>browse</span> <span class="ag-file-types">— .yaml, .yml or .json</span></span>
+                      <input type="file" id="ag-event-file" accept=".yaml,.yml,.json" />
+                    </label>
+                    <div class="cfg-spec-chip" id="ag-event-chip">
+                      <span class="cfg-spec-icon"><i class="bi bi-file-check"></i></span>
+                      <div style="min-width:0;flex:1;"><div class="cfg-spec-name" id="ag-event-name"></div><div class="cfg-spec-sub">Ready to upload</div></div>
+                      <button type="button" class="cfg-action-btn ag-file-remove" aria-label="Remove file"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="cfg-spec-onfile" id="ag-event-onfile" style="display:none;"><i class="bi bi-check-circle-fill"></i><span>AsyncAPI document on file — attach a new file above to replace it</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ag-iface" data-ag-kind="LOCAL">
+              <label class="ag-iface-head" for="ag-use-local">
+                <span class="ag-iface-icon" aria-hidden="true"><i class="bi bi-terminal"></i></span>
+                <span class="ag-iface-text"><strong>Run it yourself</strong><span>Developers install and run it themselves.</span></span>
+                <input type="checkbox" id="ag-use-local" class="ag-iface-toggle">
+              </label>
+              <div class="cfg-form-grid ag-iface-body" style="display:none;">
+                <div class="cfg-form-group cfg-form-group-full">
+                  <label>Setup guide <span class="required">*</span></label>
+<div class="ag-file" data-ag-file="local">
+                    <label class="cfg-upload-compact ag-file-zone">
+                      <i class="bi bi-file-earmark-arrow-up ag-file-icon" aria-hidden="true"></i>
+                      <span class="ag-file-label">Drag &amp; drop or <span>browse</span> <span class="ag-file-types">— .md</span></span>
+                      <input type="file" id="ag-local-file" accept=".md,.markdown" />
+                    </label>
+                    <div class="cfg-spec-chip" id="ag-local-chip">
+                      <span class="cfg-spec-icon"><i class="bi bi-file-check"></i></span>
+                      <div style="min-width:0;flex:1;"><div class="cfg-spec-name" id="ag-local-name"></div><div class="cfg-spec-sub">Ready to upload</div></div>
+                      <button type="button" class="cfg-action-btn ag-file-remove" aria-label="Remove file"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="cfg-spec-onfile" id="ag-local-onfile" style="display:none;"><i class="bi bi-check-circle-fill"></i><span>Instructions on file — attach a new file above to replace them</span></div>
+                  </div>
+                  <p class="cfg-field-hint">Shown on the agent page as written. Headings such as Requirements, Install and run, Configure work well.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Details. General is always open; the optional sections fold. -->
+          <div class="cfg-wizard-step" id="ag-wstep-1" style="display:none; max-width:720px;">
+            <section class="cfg-form-card" id="ag-card-general">
+              <div class="cfg-form-card-head">
+                <h3 class="cfg-form-card-title">General</h3>
+                <p class="cfg-form-card-desc">How this agent is named and shown in the portal.</p>
+                <p class="ag-card-note" id="ag-card-note" style="display:none;"><i class="bi bi-file-earmark-code" aria-hidden="true"></i> Name, version and description are filled from the Agent Card. Change any of them to use your own.</p>
+              </div>
+              <div class="cfg-form-grid">
+                <div class="cfg-form-group">
+                  <label for="ag-name">Name <span class="required ag-listing-required">*</span> <span class="ag-from-card" data-ag-from-card="displayName">From the Agent Card</span></label>
+                  <input type="text" id="ag-name" class="cfg-form-input" placeholder="e.g. Invoice Triage Agent" />
+                </div>
+                <div class="cfg-form-group">
+                  <label for="ag-version">Version <span class="required ag-listing-required">*</span> <span class="ag-from-card" data-ag-from-card="version">From the Agent Card</span></label>
+                  <input type="text" id="ag-version" class="cfg-form-input" placeholder="e.g. v1.0.0" />
+                </div>
+                <div class="cfg-form-group">
+                  <label for="ag-handle">Handle (URL slug) <span class="required">*</span></label>
+                  <input type="text" id="ag-handle" class="cfg-form-input cfg-form-input--mono" placeholder="invoice-triage-agent" />
+                  <p class="cfg-field-hint">Generated from the name. Can't be changed once created.</p>
+                </div>
+                <div class="cfg-form-group">
+                  <label>Agent visibility</label>
+                  <div class="cfg-vis-toggle">
+                    <button type="button" class="cfg-vis-btn active" id="ag-vis-visible" data-val="VISIBLE"><i class="bi bi-eye"></i> Visible</button>
+                    <button type="button" class="cfg-vis-btn" id="ag-vis-hidden" data-val="HIDDEN"><i class="bi bi-eye-slash"></i> Hidden</button>
+                  </div>
+                  <p class="cfg-field-hint">Hidden agents stay on the portal's pages but out of what AI tools read.</p>
+                </div>
+                <div class="cfg-form-group cfg-form-group-full">
+                  <label for="ag-desc">Description <span class="required ag-listing-required">*</span> <span class="ag-from-card" data-ag-from-card="description">From the Agent Card</span></label>
+                  <textarea id="ag-desc" class="cfg-form-input" rows="3" placeholder="What this agent does, in 1–2 sentences"></textarea>
+                </div>
+              </div>
+            </section>
+
+            <details class="cfg-form-card ag-fold" id="ag-fold-labels">
+              <summary class="ag-fold-head">
+                <span class="ag-fold-text">
+                  <span class="cfg-form-card-title">Labels and tags <span class="ag-fold-optional">Optional</span></span>
+                  <span class="cfg-form-card-desc">Labels decide which views list this agent. Tags help people find it in search.</span>
+                </span>
+                <i class="bi bi-chevron-down ag-fold-chevron" aria-hidden="true"></i>
+              </summary>
+              <div class="ag-fold-body">
+                <div class="cfg-form-group cfg-form-group-full">
+                  <label>Labels</label>
+                  {{#if orgLabels.length}}
+                  <div id="ag-labels" class="cfg-label-picker" role="group" aria-label="Agent labels">
+                    {{#each orgLabels}}
+                    <button type="button" class="cfg-label-toggle" data-value="{{id}}" aria-pressed="false">
+                      <i class="bi bi-check2"></i><span>{{displayName}}</span>
+                    </button>
+                    {{/each}}
+                  </div>
+                  <p class="cfg-field-hint">Click labels to toggle. Labels control which views this agent appears in.</p>
+                  {{else}}
+                  <p class="cfg-field-hint">No labels yet. Create them in the Labels tab to attach them here.</p>
+                  {{/if}}
+                </div>
+                <div class="cfg-form-group cfg-form-group-full">
+                  <label for="ag-tags-input">Tags</label>
+                  {{!-- The API wizard's tag chip input (cfg-chip-input.js). --}}
+                  <div class="cfg-chip-input-wrap" id="ag-tags-wrap">
+                    <div id="ag-tags-chips" style="display:contents;"></div>
+                    <input type="text" class="cfg-chip-text-input" id="ag-tags-input"
+                      placeholder="Add a tag…" autocomplete="off" aria-describedby="ag-tags-hint" />
+                  </div>
+                  <p class="cfg-field-hint" id="ag-tags-hint">Free-text keywords for search and discovery. Press Enter or comma to add; Backspace removes the last tag.</p>
+                </div>
+              </div>
+            </details>
+            <details class="cfg-form-card ag-fold" id="ag-fold-owners">
+              <summary class="ag-fold-head">
+                <span class="ag-fold-text">
+                  <span class="cfg-form-card-title">Ownership <span class="ag-fold-optional">Optional</span></span>
+                  <span class="cfg-form-card-desc">Who consumers can contact about this agent.</span>
+                </span>
+                <i class="bi bi-chevron-down ag-fold-chevron" aria-hidden="true"></i>
+              </summary>
+              <div class="ag-fold-body">
+                <div class="cfg-form-grid">
+                  <div class="cfg-form-group">
+                    <label for="ag-tech-owner">Technical owner</label>
+                    <input type="text" id="ag-tech-owner" class="cfg-form-input" placeholder="e.g. John Doe" />
+                  </div>
+                  <div class="cfg-form-group">
+                    <label for="ag-tech-email">Technical owner email</label>
+                    <input type="text" id="ag-tech-email" class="cfg-form-input cfg-form-input--mono" placeholder="john.doe@example.com" />
+                  </div>
+                  <div class="cfg-form-group">
+                    <label for="ag-biz-owner">Business owner</label>
+                    <input type="text" id="ag-biz-owner" class="cfg-form-input" placeholder="e.g. Jane Doe" />
+                  </div>
+                  <div class="cfg-form-group">
+                    <label for="ag-biz-email">Business owner email</label>
+                    <input type="text" id="ag-biz-email" class="cfg-form-input cfg-form-input--mono" placeholder="jane.doe@example.com" />
+                  </div>
+                </div>
+              </div>
+            </details>
+            <details class="cfg-form-card ag-fold" id="ag-fold-plans" style="display:none;">
+              <summary class="ag-fold-head">
+                <span class="ag-fold-text">
+                  <span class="cfg-form-card-title">Subscription plans <span class="ag-fold-optional">Optional</span></span>
+                  <span class="cfg-form-card-desc">Plans developers can choose when they subscribe. They cover A2A and REST calls only.</span>
+                </span>
+                <i class="bi bi-chevron-down ag-fold-chevron" aria-hidden="true"></i>
+              </summary>
+              <div class="ag-fold-body">
+                {{!-- The API wizard's searchable plan picker; plans come from #cfg-plans-data. --}}
+                <div class="cfg-form-group cfg-form-group-full" style="position:relative;">
+                  <label for="ag-plans-search">Subscription plans</label>
+                  <div class="cfg-chip-input-wrap" id="ag-plans-wrap">
+                    <div id="ag-plans-chips" style="display:contents;"></div>
+                    <input type="text" class="cfg-chip-text-input" id="ag-plans-search"
+                      placeholder="{{#if orgPlans.length}}Type to search plans…{{else}}No plans available{{/if}}"
+                      autocomplete="off" {{#unless orgPlans.length}}disabled{{/unless}} />
+                  </div>
+                  <div class="cfg-chip-dropdown" id="ag-plans-dropdown"></div>
+                  {{#unless orgPlans.length}}
+                  <p class="cfg-field-hint">No subscription plans yet. Create them in the Subscription Plans tab.</p>
+                  {{/unless}}
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <!-- Step 3: Skills and identity. What the agent can do first, then what it runs on. -->
+          <div class="cfg-wizard-step" id="ag-wstep-2" style="display:none; max-width:720px;">
+            <p class="cfg-wstep-desc">What this agent can do and what it runs on. Everything here is optional.</p>
+            <section class="cfg-form-card" id="ag-sec-skills" style="display:none;">
+              <div class="cfg-form-card-head">
+                <h3 class="cfg-form-card-title">Skills</h3>
+                <p class="cfg-form-card-desc">What this agent can do. Shown on the agent page and used by AI tools.</p>
+              </div>
+              <div id="ag-skills"></div>
+              <p class="ag-empty-hint" id="ag-skills-empty">No skills yet.</p>
+              <button type="button" class="cfg-btn-secondary cfg-btn-sm ag-add-btn" id="ag-add-skill"><i class="bi bi-plus-lg"></i> Add skill</button>
+            </section>
+            <section class="cfg-form-card ag-sec-flush" id="ag-sec-card-skills" style="display:none;">
+              <div class="cfg-form-card-head">
+                <h3 class="cfg-form-card-title ag-title-row">Skills from the Agent Card <span class="ag-card-skills-count" id="ag-card-skills-count"></span></h3>
+                <p class="cfg-form-card-desc">Developers see these on the agent page. To change them, attach a new card in the Interfaces step.</p>
+              </div>
+              <ul class="ag-card-skills-list" id="ag-card-skills-list"></ul>
+            </section>
+            <section class="cfg-form-card" id="ag-sec-model">
+              <div class="cfg-form-card-head">
+                <h3 class="cfg-form-card-title">Model and identity</h3>
+                <p class="cfg-form-card-desc">What the agent runs on and its ID, shown in the agent page's About box.</p>
+              </div>
+              <div class="cfg-form-group cfg-form-group-full">
+                <label>Models</label>
+                <div class="ag-model-head" aria-hidden="true"><span>Provider</span><span>Model</span><span></span></div>
+                <div id="ag-models" class="ag-models"></div>
+                <button type="button" class="cfg-btn-secondary cfg-btn-sm ag-add-btn" id="ag-add-model"><i class="bi bi-plus-lg"></i> Add another model</button>
+                <p class="cfg-field-hint">Either the provider or the model name is enough. Leave both empty if you'd rather not say.</p>
+              </div>
+              <div class="cfg-form-group cfg-form-group-full ag-gap-top">
+                <label for="ag-agent-id">Agent ID</label>
+                <input type="text" id="ag-agent-id" class="cfg-form-input cfg-form-input--mono" placeholder="The agent's ID in its identity provider" />
+              </div>
+            </section>
+          </div>
+
+          <!-- Step 4: Assets. Documents, or a content ZIP instead, as in the API wizard. -->
+          <div class="cfg-wizard-step" id="ag-wstep-3" style="display:none; max-width:720px;">
+            <div class="cfg-assets-panel" id="ag-assets-panel-docs">
+              <p class="cfg-wstep-desc">Add guides or references for developers. You can upload several Markdown files (.md).</p>
+              <label class="cfg-upload-compact" id="ag-docs-zone">
+                <i class="bi bi-upload ag-file-icon" aria-hidden="true"></i>
+                <span class="ag-file-label">Drag &amp; drop or <span>browse</span> to upload <span class="ag-file-types">— .md · multiple</span></span>
+                <input type="file" id="ag-docs-input" multiple accept=".md,.markdown" />
+              </label>
+              <div id="ag-existing-docs" class="cfg-docs-list"></div>
+              <div id="ag-docs-empty" class="cfg-docs-empty">No documents added yet.</div>
+              <div id="ag-docs-list" class="cfg-docs-list"></div>
+              <button type="button" class="cfg-link-btn" id="ag-assets-to-import">
+                <i class="bi bi-file-earmark-zip"></i> Import content from ZIP
+              </button>
+            </div>
+
+            <div class="cfg-assets-panel" id="ag-assets-panel-import" hidden>
+              <button type="button" class="cfg-link-btn" id="ag-assets-to-docs">
+                <i class="bi bi-arrow-left"></i> Back to uploading documents
+              </button>
+              <p class="cfg-assets-title">Import a content package</p>
+              <p class="cfg-wstep-desc">A <code>web/api-content.md</code> file sets a landing page (it replaces the generated overview, as for APIs; Markdown only, not <code>.hbs</code>) and a <code>docs/</code> folder adds documents. Saving removes the current documents, landing page and thumbnail, and uses this ZIP’s content instead. The agent’s definition files are kept. The ZIP is uploaded when you save.</p>
+              <label class="cfg-upload-zone" id="ag-content-zone">
+                <span class="cfg-upload-icon"><i class="bi bi-file-earmark-zip"></i></span>
+                <span class="cfg-upload-label">Drag &amp; drop or <span>browse</span> to upload</span>
+                <span class="cfg-upload-hint">One .zip file · up to 10 MB</span>
+                <input type="file" id="ag-content-input" accept=".zip" />
+              </label>
+              <p class="cfg-field-error" id="ag-content-error" style="display:none;"></p>
+              <div class="cfg-spec-chip" id="ag-content-chip">
+                <span class="cfg-spec-icon"><i class="bi bi-file-earmark-zip-fill"></i></span>
+                <div>
+                  <div class="cfg-spec-name" id="ag-content-name"></div>
+                  <div class="cfg-spec-sub">Uploaded when you save</div>
+                </div>
+                <button type="button" class="cfg-action-btn" id="ag-content-remove" style="margin-left:auto;" aria-label="Remove file">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ag-errors" id="ag-wz-errors" role="alert" style="display:none;"></div>
+
+          <div class="cfg-wizard-actions">
+            <div class="cfg-wizard-actions-right">
+              <button type="button" class="cfg-btn-ghost" id="ag-wz-cancel">Cancel</button>
+              <button type="button" class="cfg-btn-ghost" id="ag-wz-prev" style="display:none;">Back</button>
+              <button type="button" class="cfg-btn-primary" id="ag-wz-next">Next</button>
+            </div>
+          </div>
+        </div><!-- /#cfg-agents-wizard -->
+      </div><!-- /#cfg-agents -->
+
+<!-- Deprecate agent -->
+<div class="cfg-modal-overlay" id="ag-deprecate-modal" style="display:none;">
+  <div class="cfg-modal">
+    <div class="cfg-modal-header">
+      <span class="cfg-modal-icon"><i class="bi bi-archive"></i></span>
+      <h2 class="cfg-modal-title">Deprecate Agent</h2>
+    </div>
+    <p class="cfg-modal-body">Are you sure you want to deprecate <strong id="ag-deprecate-name"></strong>? It stays listed, marked as deprecated, and existing subscriptions and keys keep working. You can publish it again at any time.</p>
+    <div class="cfg-modal-actions">
+      <button type="button" class="cfg-btn-secondary" id="ag-deprecate-cancel">Cancel</button>
+      <button type="button" class="cfg-btn-danger" id="ag-deprecate-confirm">Deprecate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete agent -->
+<div class="cfg-modal-overlay" id="ag-delete-modal" style="display:none;">
+  <div class="cfg-modal">
+    <div class="cfg-modal-header">
+      <span class="cfg-modal-icon"><i class="bi bi-trash"></i></span>
+      <h2 class="cfg-modal-title">Delete Agent</h2>
+    </div>
+    <p class="cfg-modal-body">Are you sure you want to delete <strong id="ag-delete-name"></strong>? It will be removed from the API Portal with its definition files and documentation. An agent with subscriptions or active keys can't be deleted. This action can't be undone.</p>
+    <div class="cfg-modal-actions">
+      <button type="button" class="cfg-btn-secondary" id="ag-delete-cancel">Cancel</button>
+      <button type="button" class="cfg-btn-danger" id="ag-delete-confirm">Delete Agent</button>
+    </div>
+  </div>
+</div>

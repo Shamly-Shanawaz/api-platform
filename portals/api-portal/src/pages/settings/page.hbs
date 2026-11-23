@@ -28,6 +28,10 @@
       window.cfgSuggestCombo at load. --}}
 <script src='{{basePath}}/technical-scripts/cfg-suggest-combo.js' defer></script>
 <script src='{{basePath}}/technical-scripts/settings-apis.js' defer></script>
+{{#if showAgentsNav}}
+<script src='{{basePath}}/technical-scripts/agent-document.js' defer></script>
+<script src='{{basePath}}/technical-scripts/settings-agents.js' defer></script>
+{{/if}}
 <script src='{{basePath}}/technical-scripts/paginate.js' defer></script>
 <script src='{{basePath}}/technical-scripts/settings-labels.js' defer></script>
 <script src='{{basePath}}/technical-scripts/settings-organization.js' defer></script>
@@ -51,6 +55,7 @@
 <script type="application/json" id="cfg-keymanagers-data">{{{ json keyManagers }}}</script>
 <script type="application/json" id="cfg-views-data">{{{ json views }}}</script>
 <script type="application/json" id="cfg-orglabels-data">{{{ json orgLabels }}}</script>
+{{#if showAgentsNav}}<script type="application/json" id="cfg-agents-data">{{{ json orgAgents }}}</script>{{/if}}
 
 <div class="cfg-page">
 
@@ -90,6 +95,8 @@
       {{> cfg-apis-panel}}
 
       {{> cfg-mcps-panel}}
+
+      {{#if showAgentsNav}}{{> cfg-agents-panel}}{{/if}}
 
       {{> cfg-plans-panel}}
 

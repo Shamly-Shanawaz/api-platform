@@ -46,6 +46,8 @@ const apiWorkflowService = require('../services/apiWorkflowService');
 const apiMetadataService = require('../services/apiMetadataService');
 const util = require('../utils/util');
 const { renderGivenTemplate, loadLayoutFromAPI } = require('../utils/util');
+const { parseJsonColumn } = require('../db/rows');
+const { kindBadges } = require('./agentViewModel');
 const { getSessionCsrfToken } = require('../middlewares/csrfProtection');
 const { config } = require('../config/configLoader');
 const constants = require('../utils/constants');
@@ -156,6 +158,21 @@ const loadSettingsPage = async (req, res) => {
         templateContent.orgAllAPIs = mappedAPIs;
         templateContent.orgAPIs = mappedAPIs.filter(api => !constants.DEDICATED_FAMILY_TYPES.includes(api.apiType));
         templateContent.orgMCPs = mappedAPIs.filter(api => api.apiType === constants.API_TYPE.MCP);
+        // Agents get their own tab (Settings → Agents): the row shows how each is used.
+        // Newest first, as on the agents listing.
+        templateContent.orgAgents = allAPIs.filter(api => api.type === constants.API_TYPE.AGENT)
+            .sort((x, y) => new Date(y.created_at || 0) - new Date(x.created_at || 0)).map((api) => {
+            const agent = parseJsonColumn(api.metadata_search)?.agent || {};
+            return {
+                apiId: api.handle,
+                apiName: api.name,
+                apiHandle: api.handle,
+                apiVersion: api.version,
+                apiStatus: api.status,
+                kinds: kindBadges(agent).map((badge) => badge.label).join(' + '),
+                existingDocs: docNamesByApiId[api.uuid] || [],
+            };
+        });
 
         let orgLabels = [];
         try {

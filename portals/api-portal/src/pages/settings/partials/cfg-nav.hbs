@@ -28,6 +28,11 @@
         <a href="#cfg-mcps" class="cfg-nav-item" data-panel="cfg-mcps">
           <span class="mcp-glyph" aria-hidden="true"></span><span>MCP Servers</span>
         </a>
+        {{#if showAgentsNav}}
+        <a href="#cfg-agents" class="cfg-nav-item" data-panel="cfg-agents">
+          <i class="bi bi-cpu"></i><span>Agents</span>
+        </a>
+        {{/if}}
       </div>
 
       {{#if showMonetization}}
