@@ -27,6 +27,7 @@
 <div id="api-keys-config" style="display:none"
     data-org-id="{{orgId}}"
     data-api-id="{{apiMetadata.id}}"
+    data-resource-base="{{#if (eq apiMetadata.type "Agent")}}/agents/{{else}}/apis/{{/if}}"
     data-load-error="{{#if apiKeysLoadError}}true{{else}}false{{/if}}"
     data-applications="{{json applications}}"
     data-selected-app-id="{{selectedAppId}}"
@@ -34,9 +35,15 @@
 </div>
 
 <nav class="dp-breadcrumb">
+  {{#if (eq apiMetadata.type "Agent")}}
+  <a class="dp-breadcrumb-item" href="{{baseUrl}}/agents">Agents</a>
+  <i class="bi bi-chevron-right dp-breadcrumb-sep"></i>
+  <a class="dp-breadcrumb-item" href="{{baseUrl}}/agent/{{apiMetadata.id}}">{{or apiMetadata.title apiMetadata.name}}</a>
+  {{else}}
   <a class="dp-breadcrumb-item" href="{{baseUrl}}/apis">APIs</a>
   <i class="bi bi-chevron-right dp-breadcrumb-sep"></i>
   <a class="dp-breadcrumb-item" href="{{baseUrl}}/api/{{apiMetadata.id}}">{{or apiMetadata.title apiMetadata.name}}</a>
+  {{/if}}
   <i class="bi bi-chevron-right dp-breadcrumb-sep"></i>
   <span class="dp-breadcrumb-current">API Keys</span>
 </nav>

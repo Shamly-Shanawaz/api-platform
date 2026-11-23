@@ -2769,6 +2769,207 @@ paths:
         - OAuth2Security:
             - dp:mcp_server_key:update
             - dp:mcp_server_key:manage
+  /agents/{agentId}/api-keys/generate:
+    parameters:
+      - $ref: "#/components/parameters/agentId"
+    post:
+      tags:
+        - Agent Keys
+      operationId: generateAgentApiKey
+      summary: Generate an agent API key
+      description: >-
+        Generates an API key for an agent. Agents with subscription plans only; any other agent answers 404. Mirrors `POST /api-portal/api/v0.9/apis/{apiId}/api-keys/generate`.
+      requestBody:
+        $ref: "#/components/requestBodies/ApiKeyBody"
+      responses:
+        "201":
+          description: Generated API key. The plaintext `key` is returned exactly once.
+          headers:
+            Location:
+              description: URL of the generated API key resource.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_key:create
+            - dp:agent_key:manage
+  /agents/{agentId}/api-keys:
+    parameters:
+      - $ref: "#/components/parameters/agentId"
+    get:
+      tags:
+        - Agent Keys
+      operationId: listAgentApiKeys
+      summary: List agent API keys
+      description: Lists API keys for the given agent. Mirrors `GET /api-portal/api/v0.9/apis/{apiId}/api-keys`.
+      parameters:
+        - $ref: "#/components/parameters/appIdQueryOptional"
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/ApiKeyListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_key:read
+            - dp:agent_key:manage
+  /agents/{agentId}/api-keys/regenerate:
+    parameters:
+      - $ref: "#/components/parameters/agentId"
+    post:
+      tags:
+        - Agent Keys
+      operationId: regenerateAgentApiKey
+      summary: Regenerate an agent API key
+      description: >-
+        Regenerates the secret for an existing agent API key identified by `keyId` in the request body. Mirrors
+        `POST /api-portal/api/v0.9/apis/{apiId}/api-keys/regenerate`.
+      requestBody:
+        $ref: "#/components/requestBodies/ApiKeyRegenerateBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/ApiKeyGenerateResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The key has already been revoked and cannot be regenerated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: error
+                code: CONFLICT
+                message: Cannot regenerate a revoked key
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_key:update
+            - dp:agent_key:manage
+  /agents/{agentId}/api-keys/revoke:
+    parameters:
+      - $ref: "#/components/parameters/agentId"
+    post:
+      tags:
+        - Agent Keys
+      operationId: revokeAgentApiKey
+      summary: Revoke an agent API key
+      description: >-
+        Revokes an existing agent API key identified by `keyId` in the request body. Mirrors
+        `POST /api-portal/api/v0.9/apis/{apiId}/api-keys/revoke`.
+      requestBody:
+        $ref: "#/components/requestBodies/ApiKeyRevokeBody"
+      responses:
+        "204":
+          description: API key revoked successfully.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The key has already been revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: error
+                code: CONFLICT
+                message: Key already revoked or not found
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_key:revoke
+            - dp:agent_key:manage
+  /agents/{agentId}/api-keys/associate:
+    parameters:
+      - $ref: "#/components/parameters/agentId"
+    post:
+      tags:
+        - Agent Keys
+      operationId: associateAgentApiKeyApplication
+      summary: Associate an agent API key with an application
+      description: >-
+        Associates (or re-associates) an existing agent API key with an application, for analytics attribution
+        only. Mirrors `POST /api-portal/api/v0.9/apis/{apiId}/api-keys/associate`.
+      requestBody:
+        $ref: "#/components/requestBodies/ApiKeyAssociateBody"
+      responses:
+        "200":
+          description: Association updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyApplicationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The key has already been revoked and cannot be associated with an application.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: error
+                code: CONFLICT
+                message: Cannot associate a revoked key
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_key:update
+            - dp:agent_key:manage
+  /agents/{agentId}/api-keys/dissociate:
+    parameters:
+      - $ref: "#/components/parameters/agentId"
+    post:
+      tags:
+        - Agent Keys
+      operationId: removeAgentApiKeyApplication
+      summary: Remove an agent API key's application association
+      description: >-
+        Removes the application association from an agent API key identified by `keyId` in the request body, if
+        any. Mirrors `POST /api-portal/api/v0.9/apis/{apiId}/api-keys/dissociate`.
+      requestBody:
+        $ref: "#/components/requestBodies/ApiKeyDissociateBody"
+      responses:
+        "204":
+          description: Association removed (or none existed).
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_key:update
+            - dp:agent_key:manage
   /applications/{applicationId}/api-keys:
     parameters:
       - $ref: "#/components/parameters/applicationId"

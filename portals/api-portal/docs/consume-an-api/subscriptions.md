@@ -35,6 +35,15 @@ Some APIs are configured to allow direct invocation without subscribing. For the
 
 > **Note:** Subscriptionless access is typically for testing and exploration. For production use, subscribing is recommended — it gives you quota management and key lifecycle control.
 
+## Agents
+
+Agents work the same way. An agent with subscription plans shows them on its page: subscribe to a plan, then
+generate an API key from **API Keys** on the agent page. Each call sends both, as the example request on the agent's
+page shows: the key in the `api-key` header and the subscription token in the `Subscription-Key` header. Agents that
+you run yourself, and agents you reach only through events, have no plans or keys.
+
+Agent subscriptions appear in **My Subscriptions** beside API and MCP server subscriptions.
+
 ## View Your Subscriptions
 
 Your active subscriptions are listed under **Subscriptions** in the API Portal sidebar. From there you can see which APIs you are subscribed to, the active plan for each, and manage or cancel subscriptions.

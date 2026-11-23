@@ -19,6 +19,8 @@
 
     (function () {
       var _plansRoot = document.getElementById('subscriptionPlans');
+      // What the plans are for: "MCP server" here, "agent" on an agent page.
+      var _kindLabel = (_plansRoot && _plansRoot.dataset.kindLabel) || 'MCP server';
       window.__subscriptionOrgId = window.__subscriptionOrgId || (_plansRoot && _plansRoot.dataset.orgId) || "";
 
       var raw = document.getElementById('mcp-existing-subs-data').textContent || '[]';
@@ -263,7 +265,7 @@
 
       var UNSUB_DEFAULTS = {
         title: function (planName) { return 'Unsubscribe from <span id="mcpUnsubPlanName">' + planName + '</span> plan?'; },
-        desc: 'Your applications will lose access to this MCP server, and any tokens using this subscription will stop working. You can re-subscribe at any time.',
+        desc: 'Your applications will lose access to this ' + _kindLabel + ', and any tokens using this subscription will stop working. You can re-subscribe at any time.',
         confirm: 'Unsubscribe',
       };
 
@@ -283,7 +285,7 @@
           desc = 'Your subscription will remain active until '
             + (_sub.periodEnd ? formatBillingDate(_sub.periodEnd) : 'the end of the period') + '.';
         } else if (_sub.paid) {
-          desc = 'Your applications will lose access to this MCP server, and any tokens using this subscription will stop '
+          desc = 'Your applications will lose access to this ' + _kindLabel + ', and any tokens using this subscription will stop '
             + 'working. Usage up to now is billed on a final invoice. You can re-subscribe at any time.';
         }
         showUnsubDialog(
@@ -300,7 +302,7 @@
         showUnsubDialog(
           'End your subscription now?',
           'Your subscription ends immediately instead of on ' + formatBillingDate(_sub.endsAt)
-            + ', and your applications lose access to this MCP server. The rest of the paid period is not refunded.',
+            + ', and your applications lose access to this ' + _kindLabel + '. The rest of the paid period is not refunded.',
           'End now'
         );
       }

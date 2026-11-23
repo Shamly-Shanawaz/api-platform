@@ -42,9 +42,6 @@
     async function alertMsg(message, type) {
         if (typeof showAlert === 'function') { try { await showAlert(message, type); } catch (e) { /* noop */ } }
     }
-    function isMcp(key) {
-        return String((key && key.apiType) || '').toUpperCase() === 'MCP';
-    }
     function expiresToIso(val) {
         if (!val || !String(val).trim()) return null;
         var d = new Date(val);
@@ -73,7 +70,8 @@
     // MCP servers expose an identical but separately-rooted key API
     // (/mcp-servers/{handle}/api-keys/...). Pick the base from the key's apiType.
     function keyEndpoint(suffix) {
-        var base = isMcp(_manageKey) ? '/mcp-servers/' : '/apis/';
+        var type = String((_manageKey && _manageKey.apiType) || '').toUpperCase();
+        var base = type === 'MCP' ? '/mcp-servers/' : (type === 'AGENT' ? '/agents/' : '/apis/');
         return apiPortalApi.root(base + encodeURIComponent(_manageKey.apiId) + '/api-keys/' + suffix);
     }
 

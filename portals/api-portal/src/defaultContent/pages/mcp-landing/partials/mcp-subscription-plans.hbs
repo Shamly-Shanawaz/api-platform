@@ -19,7 +19,7 @@
 {{#if subscriptionPlans.length}}
 <section id="subscriptionPlans" class="aov-plans-wrap mcp-plans-wrap" data-org-id="{{@root.orgId}}"
   data-api-id="{{@root.apiMetadata.id}}" data-api-name="{{or @root.apiMetadata.title @root.apiMetadata.name}}"
-  data-api-version="{{@root.apiMetadata.version}}">
+  data-api-version="{{@root.apiMetadata.version}}" data-kind-label="{{#if kindLabel}}{{kindLabel}}{{else}}MCP server{{/if}}">
   <h2 class="aov-plans-title" style="margin-bottom:0.875rem;">Subscription plans</h2>
 
   {{#each subscriptionPlans}}
@@ -134,7 +134,7 @@
       </div>
       <div class="mc-token-warning">
         <i class="bi bi-exclamation-triangle-fill" style="color:#b8860b;flex:none;margin-top:1px;"></i>
-        <span>Use this token as the <code class="mc-inline-code">Subscription-Key</code> header when invoking the MCP server.</span>
+        <span>Use this token as the <code class="mc-inline-code">Subscription-Key</code> header when invoking the {{#if kindLabel}}{{kindLabel}}{{else}}MCP server{{/if}}.</span>
       </div>
       <div class="mc-token-modal-footer">
         <button id="mcpTokenModalDone" class="dp-btn dp-btn--primary">Done</button>
@@ -151,7 +151,7 @@
         <span class="mc-manage-plan-icon"><i class="bi bi-lightning-charge-fill"></i></span>
         <div>
           <h2 id="mcpManagePlanName" class="mc-manage-plan-name"></h2>
-          <div id="mcpManageSubtitle" class="mc-manage-subtitle">MCP subscription</div>
+          <div id="mcpManageSubtitle" class="mc-manage-subtitle">{{#if kindTitle}}{{kindTitle}}{{else}}MCP{{/if}} subscription</div>
         </div>
       </div>
       <button id="mcpManageClose" class="mc-modal-close" aria-label="Close">&times;</button>
@@ -178,7 +178,7 @@
           </button>
         </div>
       </div>
-      <p class="mc-config-note" style="margin:0.625rem 0 0;">Use this token as the <code class="mc-inline-code">Subscription-Key</code> header when invoking the MCP server.</p>
+      <p class="mc-config-note" style="margin:0.625rem 0 0;">Use this token as the <code class="mc-inline-code">Subscription-Key</code> header when invoking the {{#if kindLabel}}{{kindLabel}}{{else}}MCP server{{/if}}.</p>
       <hr class="mc-manage-divider">
       <div class="mc-manage-actions">
         <button id="mcpManageRegenerateBtn" class="dp-btn mc-manage-action-btn mc-manage-action-btn--regenerate">
@@ -206,7 +206,7 @@
       <span class="mc-unsub-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
       <h2 id="mcpUnsubTitle" class="mc-unsub-title">Unsubscribe from <span id="mcpUnsubPlanName"></span> plan?</h2>
     </div>
-    <p id="mcpUnsubDesc" class="mc-unsub-desc">Your applications will lose access to this MCP server, and any tokens using this subscription will stop working. You can re-subscribe at any time.</p>
+    <p id="mcpUnsubDesc" class="mc-unsub-desc">Your applications will lose access to this {{#if kindLabel}}{{kindLabel}}{{else}}MCP server{{/if}}, and any tokens using this subscription will stop working. You can re-subscribe at any time.</p>
     <div class="mc-unsub-actions">
       <button id="mcpUnsubKeepBtn" class="dp-btn dp-btn--outline">Cancel</button>
       <button id="mcpUnsubConfirmBtn" class="dp-btn mc-unsub-confirm-btn">Unsubscribe</button>

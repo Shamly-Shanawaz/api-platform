@@ -40,7 +40,12 @@ const loadAPIApiKeys = async (req, res, next) => {
         }
         // View-scoped: the per-API keys page hangs off a view URL, so it answers 404 for
         // an artifact that view doesn't include (apiDao.getIdInView).
-        const apiId = await apiDao.getIdInView(orgId, apiHandle, viewName);
+        // The agent keys page lives under /agent/{handle}; it never resolves an API, and the API
+        // keys page never resolves an agent.
+        const isAgentRoute = /\/views\/[^/]+\/agent\//.test(req.originalUrl);
+        const apiId = await apiDao.getIdInView(orgId, apiHandle, viewName, isAgentRoute
+            ? { type: constants.API_TYPE.AGENT }
+            : { excludeType: constants.API_TYPE.AGENT });
         if (!apiId) {
             const err = new Error('API not found');
             err.status = 404;
@@ -59,7 +64,10 @@ const loadAPIApiKeys = async (req, res, next) => {
             metaData = null;
         }
 
-        const showApiKeysNav = apiUsesApiKeySecurity(metaData);
+        // An agent offers keys when it has subscription plans, as its page does.
+        const showApiKeysNav = isAgentRoute
+            ? (metaData?.subscriptionPlans || []).length > 0
+            : apiUsesApiKeySecurity(metaData);
         if (!showApiKeysNav) {
             const err = new Error('API Keys not available for this API');
             err.status = 404;
