@@ -1,0 +1,44 @@
+{{!--
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+--}}
+{{!-- What the agent runs on and its identity. Every value is escaped. The agent's provider is not
+      shown: no requirement asks for it and API/MCP pages show no provider or owners (2026-11-08). --}}
+{{#if showDetails}}
+{{!-- "About": the plans card's frame and type sizes; stacked rows (label above value), only
+      rows with a value. The Agent ID gets the portal Copy button. --}}
+<div class="aov-section agent-side" id="agent-details">
+  <h2 class="aov-plans-title">About</h2>
+  <div class="aov-plan-card agent-about-card">
+    {{#if agentView.models}}
+    <div class="agent-about-row">
+      <div class="agent-about-label"><i class="bi bi-cpu" aria-hidden="true"></i> {{#if (eq agentView.models.length 1)}}Model{{else}}Models{{/if}}</div>
+      <div class="agent-about-value">{{#each agentView.models}}<div>{{label}}</div>{{/each}}</div>
+    </div>
+    {{/if}}
+    {{#if agentView.agentId}}
+    <div class="agent-about-row">
+      <div class="agent-about-label"><i class="bi bi-person-badge" aria-hidden="true"></i> Agent ID</div>
+      <div class="agent-about-value agent-about-id">
+        <span class="agent-id" id="agent-about-id" title="The agent's ID in its identity provider">{{agentView.agentId}}</span>
+        <button type="button" class="copy-btn agent-code-copy agent-about-copy" data-copy-target="agent-about-id" title="Copy" aria-label="Copy the agent ID"><span class="copy-btn-icon"><i class="bi bi-copy"></i></span><span class="copy-btn-check"><i class="bi bi-check"></i> Copied</span></button>
+      </div>
+    </div>
+    {{/if}}
+  </div>
+</div>
+{{/if}}

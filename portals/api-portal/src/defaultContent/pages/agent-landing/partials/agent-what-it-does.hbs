@@ -1,0 +1,45 @@
+{{!--
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+--}}
+{{#if agentView.skills.items.length}}
+<section class="aov-section" id="agent-skills">
+  <div class="aov-section-header">
+    <h2 class="aov-section-title">Skills</h2>
+    <span class="aov-section-count">{{agentView.skills.items.length}} {{conditionalIf (eq agentView.skills.items.length 1) "skill" "skills"}}</span>
+  </div>
+  <p class="agent-source-line">{{> agent-source source=agentView.skills.source }}</p>
+  {{!-- MCP's tool fold-out (mc-accordion), open by default as on MCP pages; only the header
+        colour differs (agent-skill-accordion: the portal's primary surface, not MCP's beige). --}}
+  {{#each agentView.skills.items}}
+  <div class="mc-accordion agent-skill-accordion">
+    <div class="mc-accordion-head open" role="button" tabindex="0" aria-expanded="true" data-agent-accordion>
+      <span class="mc-accordion-head-label"><i class="bi bi-lightning-charge" aria-hidden="true"></i> {{name}}</span>
+      <i class="bi bi-chevron-up mc-accordion-chevron" aria-hidden="true"></i>
+    </div>
+    <div class="mc-accordion-body">
+      {{#if description}}<p class="mc-accordion-desc">{{description}}</p>{{/if}}
+      {{#if tags.length}}<div class="dp-tags">{{#each tags}}<span class="dp-tag">{{this}}</span>{{/each}}</div>{{/if}}
+      {{#if examples.length}}
+      <div class="mc-accordion-meta"><span class="mc-accordion-meta-key">Examples</span></div>
+      <ul class="agent-examples">{{#each examples}}<li>“{{this}}”</li>{{/each}}</ul>
+      {{/if}}
+    </div>
+  </div>
+  {{/each}}
+</section>
+{{/if}}

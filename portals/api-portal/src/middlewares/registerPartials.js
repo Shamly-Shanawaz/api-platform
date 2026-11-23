@@ -96,8 +96,13 @@ const registerPartials = async (req, res, next) => {
           // organization up again on every page render.
           const orgId = req.orgId || await orgDao.getId(req.params.orgName);
           await registerPartialsFromAPI(req, orgId);
+          // Agent pages render their own docs and landing content (agentContentController);
+          // the API-only partials below never run for them.
+          const isAgentPage = /\/views\/[^/]+\/agents?(\/|$)/.test(req.originalUrl);
           //register doc page partials
-          if (req.originalUrl.includes(constants.ROUTE.API_DOCS_PATH) && req.params.docType && req.params.docName) {
+          if (isAgentPage) {
+            // nothing to pre-register
+          } else if (req.originalUrl.includes(constants.ROUTE.API_DOCS_PATH) && req.params.docType && req.params.docName) {
             await registerDocsPageContent(req, orgId, {});
           } else if (req.originalUrl.includes(constants.ROUTE.API_LANDING_PAGE_PATH)) {
             await registerAPILandingContent(req, orgId, {});
@@ -173,6 +178,8 @@ const registerAllPartialsFromFile = async (baseURL, req, filePrefix) => {
   await registerPartialsFromFile(baseURL, base("pages", "docs", "partials"), req);
   await registerPartialsFromFile(baseURL, base("pages", "mcp", "partials"), req);
   await registerPartialsFromFile(baseURL, base("pages", "mcp-landing", "partials"), req);
+  await registerPartialsFromFile(baseURL, base("pages", "agents", "partials"), req);
+  await registerPartialsFromFile(baseURL, base("pages", "agent-landing", "partials"), req);
   await registerPartialsFromFile(baseURL, base("pages", "api-workflows", "partials"), req);
   await registerPartialsFromFile(baseURL, base("pages", "api-workflows", "detail", "partials"), req);
 }

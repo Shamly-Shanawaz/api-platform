@@ -144,6 +144,8 @@ test('every page router registering a view-scoped page has a pattern covering it
         // The catalogue and its documents: this portal exists to show these to
         // anonymous visitors, which is why no tier applies.
         /\/apis?(\/|\.|$)/, /\/mcps?(\/|\.|$)/, /\/mcp-servers?(\/|\.|$)/,
+        // Agents are catalogue content too, as is the ARD manifest that indexes them.
+        /\/agents?(\/|\.|$)/, /\/\.well-known\/ard\.json$/,
         /\/docs(\/|$)/, /\/specification/,
         /\/api-workflows(\/|\.|$)/,
         // Guarded by enforceSecurity(scope) in the router instead of by this gate.

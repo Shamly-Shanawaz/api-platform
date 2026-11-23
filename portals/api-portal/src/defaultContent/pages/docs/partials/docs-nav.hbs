@@ -5,6 +5,14 @@
     <div class="adoc-nav-group">
       <div class="adoc-nav-group-title">SPECIFICATION</div>
       <div class="adoc-nav-items">
+        {{#if ../specItems}}
+        {{!-- Several definitions (an agent's Agent Card, OpenAPI, AsyncAPI); APIs and MCP pass none. --}}
+        {{#each ../specItems}}
+        <a href="{{url}}" class="adoc-nav-item doc-link{{#if active}} adoc-nav-item--active{{/if}}">
+          <i class="bi bi-code-slash"></i><span>{{label}}</span>
+        </a>
+        {{/each}}
+        {{else}}
         <a href="{{../baseDocUrl}}/docs/specification"
           class="adoc-nav-item doc-link{{#if ../isAPIDefinition}}{{#unless ../isTryout}} adoc-nav-item--active{{/unless}}{{/if}}">
           <i class="bi bi-code-slash"></i>
@@ -15,6 +23,7 @@
           class="adoc-nav-item doc-link{{#if ../isTryout}} adoc-nav-item--active{{/if}}">
           <i class="bi bi-play-circle"></i><span>Tryout</span>
         </a>
+        {{/if}}
         {{/if}}
       </div>
     </div>

@@ -1,0 +1,168 @@
+{{!--
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+--}}
+{{!-- Agents listing. Every value is escaped ({{ }}); filters are a plain GET form. --}}
+<section class="apis-section agents-section">
+  <div class="container-fluid">
+    <div class="apilist-hero-container">
+      <div class="apilist-hero-content">
+        <h1 class="apilist-hero-title">Discover, Integrate, and Innovate with AI agents</h1>
+        <p class="apilist-hero-description">Explore our agent catalog and find agents to call, subscribe to, or run yourself.</p>
+      </div>
+      <div class="apilist-hero-image" aria-hidden="true">
+        <svg width="180" height="150" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {{!-- A chip, the Agents section's symbol (nav and Settings use bi-cpu), in the
+                listings' line-art style. --}}
+          <rect x="46" y="46" width="88" height="88" rx="16" stroke="#5b7fb9" stroke-width="12"/>
+          <rect x="72" y="72" width="36" height="36" rx="6" stroke="#5b7fb9" stroke-width="10"/>
+          <path d="M70 46V22M90 46V22M110 46V22M70 158V134M90 158V134M110 158V134M46 70H22M46 90H22M46 110H22M158 70H134M158 90H134M158 110H134" stroke="#5b7fb9" stroke-width="10" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid apilist-container">
+    {{!-- Search as on the API and MCP listings (#query, search.js: Enter loads ?query=); it also
+          finds skills and REST protocol labels. Quick filters by way of use (spec FR-013). --}}
+    {{!-- One row: the API search box (unchanged look) on the left, the filter dropdown on the
+          right at the same height; it wraps below only on narrow screens. --}}
+    <div class="agent-search-row">
+    <div class="search-container">
+      <div class="search-input">
+        <i class="bi bi-search search-icon"></i>
+        <input type="text" id="query" value="{{filters.query}}" placeholder="Search agents and skills" autocomplete="off" aria-label="Search agents" />
+      </div>
+    </div>
+    {{!-- Way-of-use filter: a multi-select menu (a plain GET form, ?type=A2A&type=REST; an agent
+          shows when it offers every ticked way). agent-landing.js applies it when the menu
+          closes; the Apply button covers no-script. It keeps the search. --}}
+    <form class="agent-filter" method="get" action="{{baseUrl}}/agents" data-agent-filter>
+      {{#if filters.query}}<input type="hidden" name="query" value="{{filters.query}}" />{{/if}}
+      <details class="agent-filter-menu">
+        <summary class="form-select agent-filter-select" id="agent-type-filter" aria-label="Filter by way of use: {{typeSummary}}">
+          <span class="agent-filter-summary">{{typeSummary}}</span>
+        </summary>
+        <div class="agent-filter-panel" role="group" aria-label="Ways of use">
+          {{#each typeOptions}}
+          <label class="agent-filter-option">
+            <input type="checkbox" class="form-check-input" name="type" value="{{value}}"{{#if selected}} checked{{/if}} />
+            <span>{{label}}</span>
+          </label>
+          {{/each}}
+          <div class="agent-filter-actions">
+            <button type="button" class="agent-filter-clear" data-agent-filter-clear>Clear</button>
+            <button type="submit" class="dp-btn dp-btn--primary agent-filter-apply">Apply</button>
+          </div>
+        </div>
+      </details>
+    </form>
+    </div>
+
+    {{#if (eq totalCount 0)}}
+    <div class="apilist-empty">
+      <div class="apilist-empty-icon"><i class="bi bi-info-circle"></i></div>
+      <div class="apilist-empty-body">
+        <div class="apilist-empty-title">No agents available yet</div>
+        <p class="apilist-empty-desc">There are no published agents in this Portal right now. Once agents are published, they'll appear here for you to explore and subscribe to.</p>
+      </div>
+    </div>
+    {{else}}
+    <div class="apilist-results-bar">
+      <h2 class="apilist-results-heading">Agents <span class="apilist-results-count">{{apiMetadata.length}}</span></h2>
+    </div>
+    {{#if (eq apiMetadata.length 0)}}
+    <div class="apilist-empty">
+      <div class="apilist-empty-icon"><i class="bi bi-search"></i></div>
+      <div class="apilist-empty-body">
+        <div class="apilist-empty-title">No agents match these filters</div>
+        <p class="apilist-empty-desc"><a href="{{baseUrl}}/agents">Clear the filters</a> to see every agent.</p>
+      </div>
+    </div>
+    {{/if}}
+    {{/if}}
+
+    <div class="row row-gap-4">
+      {{#apiMetadata}}
+      <div class="col-lg-4 col-md-6 col-sm-12" id="agentCard-{{id}}">
+        <div class="api-card d-flex flex-column{{#if hasSubscription}} api-card--subscribed{{/if}}">
+
+          {{#if hasSubscription}}<div class="api-card-ribbon-wrap"><div class="api-card-ribbon-label">Subscribed</div></div>{{/if}}
+
+            <div class="api-card-top" data-href="{{../baseUrl}}/agent/{{id}}" style="cursor:pointer;">
+              {{#if apiImageMetadata.api-icon}}
+              <img src="{{apiImageMetadata.api-icon}}" class="api-card-img" alt="{{name}}" />
+              {{else}}
+              <span class="api-icon api-icon--agent">{{firstTwoLetters name}}</span>
+              {{/if}}
+              <div class="api-card-meta">
+                <h5 class="api-card-title">{{name}}</h5>
+                {{!-- Version, AI Ready and Deprecated, as on an API card. --}}
+                <div class="api-card-meta-row">
+                  <span class="api-version">{{version}}</span>
+                  {{#if @root.aiEnabled}}
+                  {{#unless (eq agentVisibility "HIDDEN")}}
+                  <span class="dp-badge dp-badge--ai" title="AI agents can discover and use this agent">
+                    <i class="bi bi-robot"></i> AI Ready
+                  </span>
+                  {{/unless}}
+                  {{/if}}
+                  {{#if (eq status "DEPRECATED")}}
+                  <span class="dp-badge dp-badge--deprecated"><i class="bi bi-exclamation-circle"></i> Deprecated</span>
+                  {{/if}}
+                </div>
+              </div>
+            </div>
+            <p class="api-card-desc clamp2" data-href="{{../baseUrl}}/agent/{{id}}" style="cursor:pointer;">{{description}}</p>
+            {{#if matchedSkill}}<p class="agent-match-note"><i class="bi bi-search"></i> Matches skill “{{matchedSkill}}”</p>{{/if}}
+          {{!-- Two single lines at the foot of the card: the ways of use, then the tags (only when
+                there are some, so no empty rule is drawn). --}}
+          {{#if badges.length}}
+          <div class="agent-card-kinds">
+            {{#each badges}}<span class="agent-kind-chip agent-kind-chip--{{key}}">{{label}}</span>{{/each}}
+          </div>
+          {{/if}}
+          {{#if tags.length}}
+          <div class="api-card-tags agent-card-tags">
+            {{#tags}}<span class="dp-tag">{{this}}</span>{{/tags}}
+          </div>
+          {{/if}}
+          {{#if subscriptionPlans.length}}
+          <div class="api-card-footer">
+            <div class="api-card-footer-left">
+              <a href="{{../baseUrl}}/agent/{{id}}#subscriptionPlans" class="api-plans-link">
+                <i class="bi bi-tag"></i> {{subscriptionPlans.length}} {{conditionalIf (eq subscriptionPlans.length 1) "plan" "plans"}}
+              </a>
+            </div>
+            {{#if hasSubscription}}
+            <a href="{{../baseUrl}}/agent/{{id}}#subscriptionPlans" class="api-card-view-sub-btn">
+              <i class="bi bi-check-circle"></i> View subscription
+            </a>
+            {{else if @root.access.offerSubscribe}}
+            <a href="{{../baseUrl}}/agent/{{id}}#subscriptionPlans" class="dp-btn dp-btn--primary">Subscribe</a>
+            {{/if}}
+          </div>
+          {{/if}}
+        </div>
+      </div>
+      {{/apiMetadata}}
+    </div>
+  </div>
+
+  <script src='{{basePath}}/technical-scripts/listing-cards.js' defer></script>
+  <script src='{{basePath}}/technical-scripts/paginate.js' defer></script>
+</section>

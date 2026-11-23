@@ -1585,4 +1585,6 @@ module.exports = {
     loadDocumentMd,
     loadSpecificationRaw: loadAPIDefinitionRaw,
     resolveShowApiKeysNav,
+    replaceEndpointParams,
+    requestOrigin,
 };

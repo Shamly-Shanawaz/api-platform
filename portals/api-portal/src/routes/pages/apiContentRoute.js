@@ -18,6 +18,7 @@
 const express = require('express');
 const router = express.Router();
 const apiController = require('../../controllers/apiContentController');
+const agentController = require('../../controllers/agentContentController');
 const apiKeysContentController = require('../../controllers/apiKeysPageController');
 const registerPartials = require('../../middlewares/registerPartials');
 const { ensureAuthenticated } = require('../../middlewares/ensureAuthenticated');
@@ -28,6 +29,33 @@ const { attachOrgGuard } = require('../../middlewares/orgGuard');
 // Pin every ':orgName' in this router to the organization this instance serves;
 // anything else is a 404 before the route's own handlers run.
 attachOrgGuard(router);
+
+// ---------------------------------------------------------------------------
+// Agents. Every route 404s unless `agents` is an enabled artifact type. Registered
+// before the generic `/:apiType/...` routes so agent paths never reach the API/MCP
+// handlers.
+// ---------------------------------------------------------------------------
+const notFavicon = (req, res, next) => (req.params.orgName === 'favicon.ico'
+    ? res.status(404).send('Not Found') : next());
+const requireAgents = util.requireArtifactType('agents');
+
+// For AI clients: Markdown views and the public card (no session needed). The ARD
+// manifest is served at the domain root (app.js).
+router.get('/:orgName/views/:viewName/agents.md', notFavicon, requireAgents, agentController.loadAgentsMd);
+router.get('/:orgName/views/:viewName/agent/:apiHandle.md', notFavicon, requireAgents, agentController.loadAgentMd);
+router.get('/:orgName/views/:viewName/agent/:apiHandle/agent-card.json', notFavicon, requireAgents, agentController.loadAgentCard);
+router.get('/:orgName/views/:viewName/agents', notFavicon, authController.handleSilentSSO, registerPartials,
+    requireAgents, ensureAuthenticated, agentController.loadAgents);
+router.get('/:orgName/views/:viewName/agent/:apiHandle/api-keys', notFavicon, authController.handleSilentSSO, registerPartials,
+    requireAgents, ensureAuthenticated, apiKeysContentController.loadAPIApiKeys);
+router.get('/:orgName/views/:viewName/agent/:apiHandle/docs/specification', notFavicon, authController.handleSilentSSO,
+    registerPartials, requireAgents, ensureAuthenticated, agentController.loadAgentDocsHome);
+router.get('/:orgName/views/:viewName/agent/:apiHandle/docs/:docType/:docName.md', notFavicon, requireAgents,
+    agentController.loadAgentDocumentMd);
+router.get('/:orgName/views/:viewName/agent/:apiHandle/docs/:docType/:docName', notFavicon, authController.handleSilentSSO,
+    registerPartials, requireAgents, ensureAuthenticated, agentController.loadAgentDocument);
+router.get('/:orgName/views/:viewName/agent/:apiHandle', notFavicon, authController.handleSilentSSO, registerPartials,
+    requireAgents, ensureAuthenticated, agentController.loadAgent);
 
 router.get('/:orgName/views/:viewName/llms.txt', (req, res, next) => {
     if (req.params.orgName === 'favicon.ico') {

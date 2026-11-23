@@ -1,0 +1,188 @@
+/*
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+/* Agents: listing, detail page, documents. Builds on the API/MCP card, hero, section,
+   endpoint and code-block styles; only what agents add lives here, in the theme tokens. */
+
+.api-icon--agent { background: var(--primary-surface); color: var(--primary); }
+
+/* Way-of-use and protocol badges */
+.dp-badge--agent-A2A { background: var(--primary-surface); color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent); }
+.dp-badge--agent-REST { background: color-mix(in srgb, var(--info) 10%, var(--surface)); color: var(--info);
+  border: 1px solid color-mix(in srgb, var(--info) 28%, transparent); }
+.dp-badge--agent-EVENT { background: var(--warning-surface); color: color-mix(in srgb, var(--warning) 60%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); }
+.dp-badge--agent-LOCAL { background: var(--surface-sunken); color: var(--text); border: 1px solid var(--border); }
+.dp-badge--protocol { background: var(--surface-sunken); color: var(--text-muted); border: 1px solid var(--border); }
+.dp-badge--mono { font-family: var(--font-family-mono); font-size: 0.75rem; }
+
+/* Listing: the API search box, with the way-of-use dropdown beside it at the same height and
+   in the search box's frame. */
+.agent-search-row { display: flex; align-items: stretch; gap: 0.75rem; margin-bottom: 1.625rem; }
+.agent-search-row .search-container { flex: 1; min-width: 0; margin-bottom: 0; }
+.agent-filter { display: flex; align-items: stretch; gap: 0.5rem; flex: none; margin: 0; }
+.agent-filter-select { width: auto; min-width: 12rem; height: 100%; border: 1px solid var(--border); border-radius: 0.75rem;
+  padding-left: 1rem; font-size: 0.875rem; color: var(--text); background-color: var(--surface); cursor: pointer; }
+.agent-filter-select:focus, .agent-filter-select:focus-visible { border-color: var(--primary); outline: none;
+  box-shadow: 0 0 0 2px var(--primary-surface); }
+/* The multi-select menu: the summary looks like the old select; the panel drops below it. */
+.agent-filter-menu { position: relative; display: flex; }
+.agent-filter-menu > summary { display: flex; align-items: center; list-style: none; max-width: 18rem; }
+.agent-filter-menu > summary::-webkit-details-marker { display: none; }
+.agent-filter-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-filter-panel { position: absolute; right: 0; top: calc(100% + 0.375rem); z-index: 20; min-width: 100%;
+  padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 0.75rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); }
+.agent-filter-option { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; border-radius: 0.5rem;
+  font-size: 0.875rem; color: var(--text); white-space: nowrap; cursor: pointer; margin: 0; }
+.agent-filter-option:hover { background: var(--surface-sunken); }
+.agent-filter-option .form-check-input { margin: 0; flex: none; }
+.agent-filter-actions { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  border-top: 1px solid var(--border); margin-top: 0.375rem; padding: 0.5rem 0.25rem 0; }
+.agent-filter-clear { border: 0; background: none; padding: 0; font-size: 0.8125rem; color: var(--text-muted); cursor: pointer; }
+.agent-filter-clear:hover { color: var(--text); text-decoration: underline; }
+@media (max-width: 767.98px) {
+  .agent-search-row { flex-wrap: wrap; }
+  .agent-search-row .search-container { flex-basis: 100%; }
+  .agent-filter, .agent-filter-menu, .agent-filter-select { width: 100%; max-width: none; }
+}
+/* Listing card: the ways of use on one small line under a rule, then the tags on one line. Neither
+   wraps; what does not fit is cut off at the card edge. */
+.agent-card-kinds { display: flex; flex-wrap: nowrap; gap: 0.25rem; margin-top: 0.75rem; overflow: hidden;
+  padding-top: 0.5rem; border-top: 1px solid var(--border); }
+/* The rule under the ways of use is drawn by what follows: the tags (when there are any)
+   or the footer's own rule, so it never shows above empty space. */
+.agent-card-kinds + .agent-card-tags { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+.agent-card-tags { flex-wrap: nowrap; overflow: hidden; }
+.agent-card-tags .dp-tag { flex: none; white-space: nowrap; }
+.agent-kind-chip { display: inline-flex; flex: none; align-items: center; border-radius: 0.25rem; padding: 0.0625rem 0.375rem;
+  font-size: 0.6875rem; font-weight: 600; line-height: 1.45; white-space: nowrap; }
+.agent-kind-chip--A2A { background: var(--primary-surface); color: var(--primary); }
+.agent-kind-chip--REST { background: color-mix(in srgb, var(--info) 10%, var(--surface)); color: var(--info); }
+.agent-kind-chip--EVENT { background: var(--warning-surface); color: color-mix(in srgb, var(--warning) 60%, var(--ink)); }
+.agent-kind-chip--LOCAL { background: var(--surface-sunken); color: var(--text); }
+.agent-match-note { font-size: 0.78125rem; color: var(--primary); margin: 0 0 0.5rem; }
+
+/* Detail page */
+.agent-source { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+.agent-source-line { margin: -0.5rem 0 0.75rem; }
+.agent-empty, .agent-note { color: var(--text-muted); font-size: 0.84375rem; }
+.agent-examples { margin: 0.25rem 0 0; padding-left: 1.1rem; color: var(--text); font-size: 0.8125rem; }
+.agent-endpoint-icon { color: var(--text-subtle); flex: none; }
+.agent-resource summary { cursor: pointer; list-style: none; }
+.agent-resource summary::-webkit-details-marker { display: none; }
+.agent-resource-body { padding: 0.25rem 0.875rem 0.75rem; }
+.agent-resource-summary { color: var(--text-muted); }
+.agent-subhead { font-size: 0.9375rem; font-weight: 700; color: var(--text-strong); margin: 1.25rem 0 0.625rem; }
+/* Authentication cards: the About card's style (plans card frame, stacked rows). */
+.agent-auth-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.75rem; }
+.agent-auth-card { padding: 0.875rem 1.25rem 0.25rem; margin-bottom: 0; }
+.agent-auth-title { font-size: 0.9375rem; font-weight: 600; color: var(--text-strong); padding-bottom: 0.25rem; }
+.agent-auth-card .agent-about-row:first-of-type { border-top: 1px solid var(--border); }
+.agent-auth-mono { font-family: var(--font-family-mono); font-size: 0.78125rem; overflow-wrap: anywhere; }
+.agent-auth-url { flex: 1; min-width: 0; }
+.agent-code { position: relative; }
+.agent-code .agent-code-copy { position: absolute; top: 0.5rem; right: 0.5rem; }
+.agent-code pre { padding-right: 2.5rem; }
+/* Tabs (one per way of use) */
+.agent-tab-list { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; overflow-x: auto; }
+.agent-tab { border: none; background: none; padding: 0.5rem 0.9rem; border-bottom: 2px solid transparent;
+  color: var(--text-muted); font-size: 0.875rem; font-weight: 500; white-space: nowrap; }
+.agent-tab:hover { color: var(--text-strong); }
+.agent-tab--active { border-bottom-color: var(--primary); color: var(--primary); font-weight: 600; }
+.agent-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Events: channel rows (as event APIs), the broker's protocol beside its label */
+.agent-channel-row { flex-wrap: wrap; }
+.agent-endpoint-detail { margin-left: 0.5rem; }
+
+/* Run it yourself guide on the overview: the portal's Markdown style (api-markdown-content); long
+   commands wrap. Its headings sit under the page's section titles ("How to use this agent"),
+   so the file's h1 is smaller than they are; the Markdown itself is not rewritten. */
+.agent-local-md pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.api-markdown-content.agent-local-md h1, .api-markdown-content.agent-local-md h2 { font-size: 1rem; font-weight: 700; margin: 1.25rem 0 0.5rem; border-bottom: 0; padding-bottom: 0; }
+.api-markdown-content.agent-local-md h3 { font-size: 0.9375rem; font-weight: 600; margin: 1rem 0 0.375rem; }
+.api-markdown-content.agent-local-md h4, .api-markdown-content.agent-local-md h5, .api-markdown-content.agent-local-md h6 { font-size: 0.875rem; font-weight: 600; margin: 0.875rem 0 0.25rem; }
+.api-markdown-content.agent-local-md > :first-child { margin-top: 0; }
+
+/* The About sidebar card: the plans card (aov-plan-card) with stacked rows, label above value. */
+.agent-about-card { padding: 0.25rem 1.25rem; }
+/* A2A Capabilities: compact cards in the Authentication grid (tick + name, muted explanation). */
+.agent-capabilities { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.75rem; }
+.agent-capability-card { padding: 0.75rem 1rem; margin-bottom: 0; }
+.agent-capability-name { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 600; color: var(--text-strong); }
+.agent-capability-name .bi { color: var(--primary); }
+.agent-capability-desc { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem; }
+.agent-about-row { padding: 0.75rem 0; }
+.agent-about-row + .agent-about-row { border-top: 1px solid var(--border); }
+.agent-about-label { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.25rem; }
+.agent-about-value { font-size: 0.875rem; color: var(--text-strong); overflow-wrap: anywhere; }
+.agent-about-value a { color: var(--primary); text-decoration: none; }
+.agent-about-value a:hover { text-decoration: underline; }
+.agent-about-id { display: flex; align-items: center; gap: 0.5rem; }
+.agent-id { font-family: var(--font-family-mono); font-size: 0.78125rem; word-break: break-all; flex: 1; min-width: 0; }
+.agent-about-copy { position: static; flex: none; }
+
+/* REST protocol label: plain info under the interface, not a badge */
+.agent-protocol-line { font-size: 0.8125rem; color: var(--text-muted); margin: 0 0 0.5rem; }
+.agent-protocol-line span { color: var(--text-strong); font-weight: 500; }
+.agent-protocol-line .agent-protocol-raw { font-family: var(--font-family-mono); font-size: 0.78125rem; }
+
+/* Definition page: the file name and Download */
+.agent-spec-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
+.agent-spec-bar .adoc-file-badge { margin-bottom: 0; }
+
+/* Documents */
+.agent-doc img { max-width: 100%; }
+.agent-doc-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.8125rem; }
+
+/* Links in agent notes in the portal's link colour, as elsewhere on the page. */
+.agent-note a { color: var(--primary); text-decoration: none; }
+.agent-note a:hover { text-decoration: underline; }
+/* Run-locally code keeps the Markdown (dark) code style; its Copy button reads on dark. */
+.agent-code--md .agent-code-copy { top: 1.5rem; color: var(--on-dark); }
+
+/* Skills use MCP's tool fold-out; only the header colour differs from MCP's beige: the
+   portal's primary surface with primary text, as the page's other accents. */
+.agent-skill-accordion .mc-accordion-head { background: var(--primary-surface); }
+.agent-skill-accordion .mc-accordion-head:hover { background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+.agent-skill-accordion .mc-accordion-head.open { border-bottom-color: var(--border); }
+.agent-skill-accordion .mc-accordion-head-label { color: var(--primary); }
+.agent-skill-accordion .mc-accordion-chevron { color: var(--primary); }
+.agent-skill-accordion .mc-accordion-head:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* Space between sidebar cards (About, then plans), as between sections on the page. */
+.aov-body-sidebar > .agent-side + * { margin-top: 2rem; }
+
+/* A2A version / REST protocol badges at the top of a "How to use" tab. */
+.agent-protocol-badges { display: flex; flex-wrap: wrap; gap: 0.375rem; margin: 0 0 0.75rem; }
+
+/* The Agent Card's transports: one compact row each (name, URL, Copy), in the
+   endpoint cards' frame and mono URL. */
+.agent-transports { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); }
+.agent-transport { display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem 0.75rem; min-width: 0; }
+.agent-transport + .agent-transport { border-top: 1px solid var(--border); }
+.agent-transport-name { flex: none; min-width: 5.5rem; font-size: 0.8125rem; font-weight: 600; color: var(--text-strong); }
+.agent-transport-url { flex: 1; min-width: 0; font-family: var(--font-family-mono); font-size: 0.8125rem; color: var(--text);
+  background: none; padding: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 575.98px) {
+  .agent-transport { flex-wrap: wrap; }
+  .agent-transport-url { flex-basis: 100%; order: 3; }
+}

@@ -1,0 +1,134 @@
+{{!--
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+--}}
+{{!-- One tab per way of using the agent (A2A, REST, Events, Run it yourself), in document order;
+     tab labels are the kinds, as the badges; with one way there is no tab bar.
+     Authentication and the example request are in agent-access, after Skills.
+     Definition files are not shown here: they are in Documentation, as for APIs.
+     Snippets carry placeholders, never credentials. The Run it yourself tab is the publisher's
+     Markdown, sanitized; its commands are shown, never run. --}}
+<section class="aov-section" id="agent-how-to-use">
+  <div class="aov-section-header">
+    <h2 class="aov-section-title">How to use this agent</h2>
+    {{#if agentView.tabsMany}}<span class="aov-section-count">{{agentView.tabs.length}} ways</span>{{/if}}
+  </div>
+  <div class="agent-tabs" data-agent-tabs>
+    {{#if agentView.tabsMany}}
+    <div class="agent-tab-list" role="tablist" aria-label="Ways to use this agent">
+      {{#each agentView.tabs}}
+      <button type="button" role="tab" class="agent-tab{{#if isFirst}} agent-tab--active{{/if}}" id="{{tabId}}-tab" data-tab-target="{{tabId}}" aria-controls="{{tabId}}" aria-selected="{{#if isFirst}}true{{else}}false{{/if}}" tabindex="{{#if isFirst}}0{{else}}-1{{/if}}">{{label}}</button>
+      {{/each}}
+    </div>
+    {{/if}}
+    {{#each agentView.tabs}}
+    <div class="agent-tab-panel{{#unless isFirst}} d-none{{/unless}}" id="{{tabId}}" role="tabpanel"{{#if ../agentView.tabsMany}} aria-labelledby="{{tabId}}-tab"{{else}} aria-label="{{label}}"{{/if}}>
+
+      {{#if isEvent}}
+      {{#with events}}
+      {{!-- As event APIs show it: brokers as endpoints, channels as rows with their direction.
+            Messages and payloads are in the AsyncAPI viewer (Documentation). --}}
+      <p class="agent-note">Event-driven: publish to and read from the broker; nothing is called directly.{{#if @root.asyncApiUrl}} <a href="{{@root.asyncApiUrl}}">Event messages and payloads (AsyncAPI)</a>{{/if}}</p>
+      {{#if summary.description}}<p class="agent-note">{{summary.description}}</p>{{/if}}
+      {{#each summary.servers}}
+      {{> agent-endpoint label=name detail=protocol dot="prod" url=url idPrefix="agent-broker" idSuffix=@index}}
+      {{/each}}
+      {{#if empty}}<p class="agent-empty">No channels listed.</p>{{else}}
+      <h3 class="agent-subhead">Channels</h3>
+      {{#each summary.channels}}
+      <div class="aov-channel-row agent-channel-row">
+        {{#each operations}}
+        {{#if (eq direction "You send")}}<span class="aov-channel-badge aov-channel-badge--pub" title="You publish to this channel">SEND</span>{{/if}}
+        {{#if (eq direction "You receive")}}<span class="aov-channel-badge aov-channel-badge--sub" title="You subscribe to this channel">RECEIVE</span>{{/if}}
+        {{/each}}
+        <span class="aov-resource-path">{{address}}</span>
+        {{#if description}}<span class="aov-resource-summary">{{description}}</span>{{/if}}
+      </div>
+      {{/each}}
+      {{/if}}
+      {{/with}}
+
+      {{else if isLocal}}
+      <p class="agent-note">Runs in your own environment, with your own credentials. <span class="agent-source"><i class="bi bi-markdown"></i> From the publisher's run-locally.md</span></p>
+      {{#if localHtml}}
+      <div class="api-markdown-content agent-local-md" data-agent-copy-blocks>{{{localHtml}}}</div>
+      {{else}}
+      <p class="agent-empty">No instructions provided.</p>
+      {{/if}}
+
+      {{else}}
+      {{!-- The A2A version and the REST protocol label as small neutral badges inside the tab
+            (not in the tab bar, where they read as more tabs). --}}
+      {{#if a2aBadges.length}}<div class="agent-protocol-badges" title="{{a2aInfo}}">{{#each a2aBadges}}<span class="dp-badge dp-badge--protocol">{{this}}</span>{{/each}}</div>{{/if}}
+      {{#if protocol}}<div class="agent-protocol-badges"><span class="dp-badge dp-badge--protocol{{#unless protocol.recognized}} dp-badge--mono{{/unless}}" title="Protocol: {{protocol.raw}}">{{protocol.label}}</span></div>{{/if}}
+      {{#if productionUrl}}{{> agent-endpoint label="Production" dot="prod" url=productionUrl idPrefix=tabId idSuffix="prod"}}{{/if}}
+      {{#if sandboxUrl}}{{> agent-endpoint label="Sandbox" dot="sandbox" url=sandboxUrl idPrefix=tabId idSuffix="sandbox"}}{{/if}}
+      {{#if cardUrl}}{{> agent-endpoint label="Agent Card" dot="prod" url=cardUrl idPrefix=tabId idSuffix="card"}}{{/if}}
+
+      {{!-- The Agent Card's transports, preferred first: one compact row each with its URL and
+            the portal Copy button. --}}
+      {{#if transports.length}}
+      <h3 class="agent-subhead">Transports</h3>
+      <ul class="agent-transports">
+        {{#each transports}}
+        <li class="agent-transport">
+          <span class="agent-transport-name">{{name}}</span>
+          <code id="{{../tabId}}-transport-{{@index}}" class="agent-transport-url">{{url}}</code>
+          <button type="button" class="copy-btn" data-copy-target="{{../tabId}}-transport-{{@index}}" title="Copy URL" aria-label="Copy the {{name}} URL">
+            <span class="copy-btn-icon"><i class="bi bi-copy"></i></span>
+            <span class="copy-btn-check"><i class="bi bi-check"></i> Copied</span>
+          </button>
+        </li>
+        {{/each}}
+      </ul>
+      {{/if}}
+
+      {{!-- A2A capabilities the agent declares (only those set to true), one compact card
+            each in the Authentication cards' style: a tick and the name, then what it lets
+            the caller do. --}}
+      {{#if a2aFeatures.length}}
+      <h3 class="agent-subhead">Capabilities</h3>
+      <ul class="agent-capabilities">
+        {{#each a2aFeatures}}
+        <li class="aov-plan-card agent-capability-card">
+          <div class="agent-capability-name"><i class="bi bi-check2-circle" aria-hidden="true"></i>{{label}}</div>
+          <div class="agent-capability-desc">{{description}}</div>
+        </li>
+        {{/each}}
+      </ul>
+      {{/if}}
+
+      {{#if resources.items.length}}
+      <h3 class="agent-subhead">Resources</h3>
+      {{#each resources.items}}
+      {{#if description}}
+      <details class="agent-resource">
+        <summary class="aov-resource-row"><span class="aov-method-badge aov-method-badge--{{method}}">{{method}}</span><span class="aov-resource-path">{{path}}</span><span class="aov-resource-summary">{{summary}}</span></summary>
+        <div class="agent-resource-body"><p>{{description}}</p></div>
+      </details>
+      {{else}}
+      <div class="aov-resource-row"><span class="aov-method-badge aov-method-badge--{{method}}">{{method}}</span><span class="aov-resource-path">{{path}}</span><span class="aov-resource-summary">{{summary}}</span></div>
+      {{/if}}
+      {{/each}}
+      {{/if}}
+
+
+      {{/if}}
+    </div>
+    {{/each}}
+  </div>
+</section>

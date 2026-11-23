@@ -19,6 +19,8 @@ const express = require('express');
 const router = express.Router();
 const orgController = require('../../controllers/orgContentController');
 const apiController = require('../../controllers/apiContentController');
+const agentController = require('../../controllers/agentContentController');
+const util = require('../../utils/util');
 const applicationController = require('../../controllers/applicationsContentController');
 const contentController = require('../../controllers/customContentController');
 const registerPartials = require('../../middlewares/registerPartials');
@@ -41,6 +43,15 @@ router.get('/views/:viewName/api/:apiHandle/docs/:docType/:docName', registerPar
 router.get('/views/:viewName/mcp/:apiHandle/docs/:docType/:docName', registerPartials, apiController.loadDocument);
 
 router.get('/views/:viewName/applications', registerPartials, applicationController.loadApplications);
+
+// Agents, from design_mode.agent_samples_path; 404 unless `agents` is an enabled artifact type.
+const requireAgents = util.requireArtifactType('agents');
+router.get('/views/:viewName/agents', registerPartials, requireAgents, agentController.loadAgents);
+router.get('/views/:viewName/agent/:apiHandle', registerPartials, requireAgents, agentController.loadAgentDesign);
+router.get('/views/:viewName/agent/:apiHandle/docs/specification', registerPartials, requireAgents,
+    agentController.loadAgentDocsHomeDesign);
+router.get('/views/:viewName/agent/:apiHandle/docs/:docType/:docName', registerPartials, requireAgents,
+    agentController.loadAgentDocumentDesign);
 
 // No reserved-path denylist: a root path that doesn't match one of the specific
 // /views/:viewName routes above falls through to the catch-all below, where

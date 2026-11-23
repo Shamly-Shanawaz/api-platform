@@ -323,6 +323,22 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('mcps')?.classList.add('active');
             mcpSubmenu?.classList.remove('show');
             mcpLink?.classList.remove('has-active-submenu');
+        } else if (firstSegment === 'agent') {
+            // An agent's page or document: open the Agents submenu, as for MCP servers.
+            const agentLink = document.getElementById('agents');
+            agentLink?.classList.add('active', 'has-active-submenu');
+            document.getElementById('agent-submenu')?.classList.add('show');
+            const handle = currentPath.match(/\/agent\/([^/]+)/);
+            const overview = document.getElementById('agent-overview');
+            if (handle && overview) overview.href = `${basePath}/agent/${handle[1]}`;
+            // Documentation always shown, as for MCP servers: the agent's docs home.
+            const docs = document.getElementById('agent-docs-nav');
+            if (handle && docs) docs.href = `${basePath}/agent/${handle[1]}/docs/specification`;
+            const onDoc = currentPath.includes('/docs/');
+            document.getElementById(onDoc ? 'agent-docs-nav' : 'agent-overview')?.classList.add('active');
+        } else if (firstSegment === 'agents') {
+            document.getElementById('agents')?.classList.add('active');
+            document.getElementById('agent-submenu')?.classList.remove('show');
         } else if (firstSegment === 'subscriptions') {
             document.getElementById('subscriptions')?.classList.add('active');
         } else if (firstSegment === 'billing' || firstSegment === 'usage') {

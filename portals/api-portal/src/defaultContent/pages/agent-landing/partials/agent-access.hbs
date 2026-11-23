@@ -1,0 +1,91 @@
+{{!--
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+--}}
+{{!-- Authentication and the example request, after Skills (Shamly, 2026-11-12): one panel per
+     way of calling the agent that has either, tabbed as in How to use when there are several.
+     Values are text, never markup; snippets carry placeholders, never credentials. --}}
+<section class="aov-section" id="agent-access">
+  <div class="aov-section-header">
+    <h2 class="aov-section-title">Authentication</h2>
+  </div>
+  <div class="agent-tabs" data-agent-tabs>
+    {{#if agentView.accessTabsMany}}
+    <div class="agent-tab-list" role="tablist" aria-label="Authentication for each way to call this agent">
+      {{#each agentView.accessTabs}}
+      <button type="button" role="tab" class="agent-tab{{#if isFirstAccess}} agent-tab--active{{/if}}" id="{{accessId}}-tab" data-tab-target="{{accessId}}" aria-controls="{{accessId}}" aria-selected="{{#if isFirstAccess}}true{{else}}false{{/if}}" tabindex="{{#if isFirstAccess}}0{{else}}-1{{/if}}">{{label}}</button>
+      {{/each}}
+    </div>
+    {{/if}}
+    {{#each agentView.accessTabs}}
+    <div class="agent-tab-panel{{#unless isFirstAccess}} d-none{{/unless}}" id="{{accessId}}" role="tabpanel"{{#if ../agentView.accessTabsMany}} aria-labelledby="{{accessId}}-tab"{{else}} aria-label="{{label}}"{{/if}}>
+      {{!-- Authentication (spec US3-2): one card per scheme in the About card's style: the
+            scheme as the title, stacked rows (label above value), URLs with Copy, scopes as
+            tags. Values are text, never markup. --}}
+      {{#if portalCredentials}}
+      <p class="agent-note">Subscribe to a plan; send both of these with every call.</p>
+      <div class="agent-auth-grid">
+        {{#each portalCredentials}}
+        <div class="aov-plan-card agent-auth-card">
+          <div class="agent-auth-title">{{label}}</div>
+          <div class="agent-about-row"><div class="agent-about-label">Where you get it</div><div class="agent-about-value">{{from}}</div></div>
+          <div class="agent-about-row"><div class="agent-about-label">Header</div><div class="agent-about-value agent-auth-mono">{{header}}</div></div>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if auth}}
+      {{#if auth.anyOf}}<p class="agent-note">Use any one of these:</p>{{/if}}
+      <div class="agent-auth-grid">
+        {{#each auth.schemes}}
+        <div class="aov-plan-card agent-auth-card">
+          <div class="agent-auth-title">{{typeLabel}}</div>
+          {{#each details}}
+          <div class="agent-about-row">
+            <div class="agent-about-label">{{label}}</div>
+            {{#if isUrl}}
+            <div class="agent-about-value agent-about-id">
+              <span class="agent-auth-mono agent-auth-url" id="{{../../tabId}}-auth-{{@../index}}-{{@index}}">{{value}}</span>
+              <button type="button" class="copy-btn agent-code-copy agent-about-copy" data-copy-target="{{../../tabId}}-auth-{{@../index}}-{{@index}}" title="Copy" aria-label="Copy {{label}}"><span class="copy-btn-icon"><i class="bi bi-copy"></i></span><span class="copy-btn-check"><i class="bi bi-check"></i> Copied</span></button>
+            </div>
+            {{else if isTags}}
+            <div class="agent-about-value dp-tags">{{#each tags}}<span class="dp-tag">{{this}}</span>{{/each}}</div>
+            {{else if isMono}}
+            <div class="agent-about-value agent-auth-mono">{{value}}</div>
+            {{else}}
+            <div class="agent-about-value">{{value}}</div>
+            {{/if}}
+          </div>
+          {{/each}}
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if snippet}}
+      <h3 class="agent-subhead">Example request</h3>
+      {{#if grpcPreferred}}<p class="agent-note">This agent prefers gRPC; the example uses its next transport. For gRPC, use a client generated from the A2A protocol definitions, at the gRPC address under Transports.</p>{{/if}}
+      <div class="mc-json-block agent-code"><button type="button" class="copy-btn agent-code-copy" data-copy-target="{{snippetId}}" title="Copy" aria-label="Copy"><span class="copy-btn-icon"><i class="bi bi-copy"></i></span><span class="copy-btn-check"><i class="bi bi-check"></i> Copied</span></button><pre><code id="{{snippetId}}">{{snippet}}</code></pre></div>
+      {{else if grpcPreferred}}
+      <h3 class="agent-subhead">Example request</h3>
+      <p class="agent-note">This agent prefers gRPC. Call it with a gRPC client generated from the A2A protocol definitions, at the gRPC address under Transports.</p>
+      {{/if}}
+    </div>
+    {{/each}}
+  </div>
+</section>

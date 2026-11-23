@@ -27,6 +27,11 @@
         Browse our MCP servers <i class="bi bi-arrow-right" aria-hidden="true"></i>
       </a>
       {{/if}}
+      {{#if showAgentsNav}}
+      <a href="{{baseUrl}}/agents" class="hero-btn hero-btn--gradient">
+        Browse our agents <i class="bi bi-arrow-right" aria-hidden="true"></i>
+      </a>
+      {{/if}}
       {{#if aiEnabled}}
       <button type="button" class="hero-btn hero-btn--ai" data-bs-toggle="modal" data-bs-target="#discoverAiModal">
         <i class="bi bi-stars" aria-hidden="true"></i> Discover with AI

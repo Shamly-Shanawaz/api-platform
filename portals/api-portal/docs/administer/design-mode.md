@@ -19,6 +19,7 @@ In `configs/config.toml`, add or update the `[design_mode]` section:
 enabled = true
 api_samples_path = "./samples/apis/"          # directory of sample API definitions
 mcp_samples_path = "./samples/mcps/"          # directory of sample MCP server definitions
+agent_samples_path = "./samples/agents/"      # directory of sample agents (when "agents" is enabled)
 subscription_plans_path = "./samples/subscriptionPlans.yaml"
 applications_path = "./samples/applications.yaml"
 path_to_layout = "./src/defaultContent/"      # Handlebars templates and static assets
@@ -41,6 +42,7 @@ Visit **http://localhost:9543/api-portal/views/default**.
 | `enabled` | `false` | Set to `true` to activate design mode |
 | `api_samples_path` | `./samples/apis/` | Directory of sample REST/GraphQL/SOAP/WS API definitions |
 | `mcp_samples_path` | `./samples/mcps/` | Directory of sample MCP server definitions |
+| `agent_samples_path` | `./samples/agents/` | Directory of sample agents: one folder each with `agent.yaml`, its definition files under the fixed names (`agent-card.json`, `openapi.yaml`, `asyncapi.yaml`, `run-locally.md`) and optional `docs/`. Shown only when `agents` is in `[api_portal.artifacts] enabled_types`. A sample the `/agents` API would refuse is left out (logged) |
 | `subscription_plans_path` | `./samples/subscriptionPlans.yaml` | YAML file with org-level subscription plan details |
 | `applications_path` | `./samples/applications.yaml` | YAML file with sample applications shown on the Applications page |
 | `path_to_layout` | `./src/defaultContent/` | Layout directory used to render pages (see [Customising the Theme](#customising-the-theme)) |
@@ -51,6 +53,7 @@ All options can also be set via environment variables:
 APIP_AP_DESIGNMODE_ENABLED=true
 APIP_AP_DESIGNMODE_APISAMPLESPATH=./my-samples/apis/
 APIP_AP_DESIGNMODE_MCPSAMPLESPATH=./my-samples/mcps/
+APIP_AP_DESIGNMODE_AGENTSAMPLESPATH=./my-samples/agents/
 APIP_AP_DESIGNMODE_SUBSCRIPTIONPLANSPATH=./my-samples/plans.yaml
 APIP_AP_DESIGNMODE_APPLICATIONSPATH=./my-samples/applications.yaml
 APIP_AP_DESIGNMODE_PATHTOLAYOUT=./my-layout/

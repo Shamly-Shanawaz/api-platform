@@ -12,6 +12,7 @@
 @import "side-bar.css";
 @import "api-workflows.css";
 @import "mcp-landing.css";
+@import "agents.css";
 
 :root {
   /* ============================================================

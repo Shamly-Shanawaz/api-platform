@@ -1204,6 +1204,7 @@ function validateScripts(strContent) {
             "<script src='/technical-scripts/mcp-landing.js' defer></script>",
             "<script src='/technical-scripts/api-subscription-plans.js' defer></script>",
             "<script src='/technical-scripts/mcp-subscription-plans.js' defer></script>",
+            "<script src='/technical-scripts/agent-landing.js' defer></script>",
             "<script src='/technical-scripts/dev-reload.js' defer></script>",
             '<script src="https://cdn.jsdelivr.net/npm/@jentic/arazzo-ui@1.0.0-alpha.30/dist/arazzo-ui.js" integrity="sha256-OYzURPQLK+lup5rGo+IQmVbjWOjVgjURBWDDtMHIOaw=" crossorigin="anonymous"></script>',
             '<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js" integrity="sha256-Rdw90D3AegZwWiwpibjH9wkBPwS9U4bjJ51ORH8H69c=" crossorigin="anonymous"></script>',
@@ -1385,7 +1386,9 @@ function validateTemplateExpressions(strContent) {
  * with no session — mirrors getOrgAsset.
  */
 function apiImageUrl(orgId, api, fileName) {
-    const base = api.type === constants.API_TYPE.MCP ? '/mcp-servers/' : constants.ROUTE.API_FILE_PATH;
+    const base = api.type === constants.API_TYPE.MCP ? '/mcp-servers/'
+        : api.type === constants.API_TYPE.AGENT ? '/agents/'
+            : constants.ROUTE.API_FILE_PATH;
     return `${constants.API_PORTAL_API.orgPath(orgId)}${base}${encodeURIComponent(api.id)}${constants.API_TEMPLATE_FILE_NAME}${encodeURIComponent(fileName)}${constants.ORG_ID_PARAM}${orgId}`;
 }
 
@@ -1487,9 +1490,12 @@ function resolveApiType(apiType) {
     return constants.API_TYPE[keyword];
 }
 
-/** The path segment of an artifact's page in a view: "mcp" for an MCP server, "api" for any API. */
+/** The path segment of an artifact's page in a view: "mcp" for an MCP server, "agent" for an agent, "api" for any API. */
 function artifactPageSection(apiType) {
-    return apiType === constants.API_TYPE.MCP ? 'mcp' : 'api';
+    if (apiType === constants.API_TYPE.MCP) {
+        return 'mcp';
+    }
+    return apiType === constants.API_TYPE.AGENT ? 'agent' : 'api';
 }
 
 function filterAllowedAPIs(searchResults, allowedAPIs) {

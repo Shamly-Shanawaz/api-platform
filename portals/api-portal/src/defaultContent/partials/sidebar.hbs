@@ -49,6 +49,23 @@
       </a>
     </div>
     {{/if}}
+    {{#if showAgentsNav}}
+    <a href="{{baseUrl}}/agents" class="nav-link" id="agents">
+      <i class="bi bi-cpu sidebar-icon" aria-hidden="true"></i>
+      <span class="nav-text">Agents</span>
+      <i class="bi bi-chevron-right sidebar-chevron nav-text"></i>
+    </a>
+    <div class="submenu api-submenu" id="agent-submenu">
+      <a href="#" class="nav-link submenu-link fw-light" id="agent-overview">
+        <i class="bi bi-grid submenu-icon"></i>
+        <span class="nav-text">Overview</span>
+      </a>
+      <a href="#" class="nav-link submenu-link fw-light" id="agent-docs-nav">
+        <i class="bi bi-file-text submenu-icon"></i>
+        <span class="nav-text">Documentation</span>
+      </a>
+    </div>
+    {{/if}}
     {{!-- API Workflows, Subscriptions and API Keys have no route in design mode; render
           them disabled (no href) so they stay visible but don't lead to a 404. --}}
     <a {{#unless (designMode)}}href="{{baseUrl}}/api-workflows"{{else}}aria-disabled="true" tabindex="-1" title="Not available in design mode"{{/unless}}
