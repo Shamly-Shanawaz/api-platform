@@ -196,6 +196,16 @@ const IMAGE_EXTENSIONS = new Set([
     constants.FILE_EXTENSIONS.GIF, constants.FILE_EXTENSIONS.SVG, constants.FILE_EXTENSIONS.ICO,
 ]);
 const METADATA_NAMES = new Set(['metadata.yaml', 'metadata.yml', 'api.yaml', 'mcp.yaml']);
+// An agent ZIP is recognised by its agent.yaml; its definitions sit beside it at the top level,
+// under a fixed name per upload field.
+const AGENT_METADATA_NAMES = new Set(['agent.yaml', 'agent.yml']);
+const AGENT_ZIP_FILES = {
+    a2aDefinition: ['agent-card.json'],
+    restDefinition: ['openapi.yaml', 'openapi.yml', 'openapi.json'],
+    eventDefinition: ['asyncapi.yaml', 'asyncapi.yml', 'asyncapi.json'],
+    localDefinition: ['run-locally.md'],
+};
+const AGENT_DEFINITION_NAMES = new Set(Object.values(AGENT_ZIP_FILES).flat());
 const DEFINITION_NAMES = new Set([
     constants.FILE_NAME.API_DEFINITION_YAML_FILE_NAME, 'definition.yml', constants.FILE_NAME.API_DEFINITION_FILE_NAME,
 ]);
@@ -219,7 +229,9 @@ const isIgnoredPath = (segments) => segments.some((segment) => segment.startsWit
 /**
  * Sorts the files of a content ZIP (paths relative to the ZIP root, '/'-separated) into what the
  * portal keeps and what it rejects, by the content ZIP entry rules. Kind 'artifact' also takes the
- * metadata file and definition from the top level. Paths are reported as they appear in the ZIP.
+ * metadata file and definition from the top level; an artifact whose top level holds agent.yaml
+ * (or agent.yml) is an agent ZIP, and its other top-level files are returned as `agentFiles`, the
+ * agent's definitions (only the AGENT_ZIP_FILES names). Paths are reported as they appear in the ZIP.
  * `folders` are the ZIP's folders, so an unknown top-level folder is rejected even when empty.
  */
 const classifyContentZip = (paths, kind, folders = []) => {
@@ -244,6 +256,14 @@ const classifyContentZip = (paths, kind, folders = []) => {
     const reject = (rejectedPath, reason) => result.rejected.push({ path: rejectedPath, reason });
     const foreignFolders = new Set();
     const artifact = kind === ZIP_KIND.ARTIFACT;
+    const topLevelName = (segments) => {
+        const inner = wrapped ? segments.slice(1) : segments;
+        return inner.length === 1 ? inner[0].toLowerCase() : null;
+    };
+    const agentZip = artifact && files.some(({ segments }) => AGENT_METADATA_NAMES.has(topLevelName(segments)));
+    if (agentZip) {
+        result.agentFiles = [];
+    }
 
     for (const { zipPath, segments: allSegments } of files) {
         const segments = wrapped ? allSegments.slice(1) : allSegments;
@@ -255,7 +275,17 @@ const classifyContentZip = (paths, kind, folders = []) => {
             reject(zipPath, ZIP_REJECTION.DUPLICATE);
         } else if (segments.length === 1) {
             const lower = name.toLowerCase();
-            if (artifact && METADATA_NAMES.has(lower)) {
+            if (agentZip) {
+                if (AGENT_DEFINITION_NAMES.has(name)) {
+                    result.agentFiles.push(zipPath);
+                } else if (!AGENT_METADATA_NAMES.has(lower)) {
+                    reject(zipPath, ZIP_REJECTION.UNKNOWN_TOP_LEVEL);
+                } else if (result.metadataPath) {
+                    reject(zipPath, ZIP_REJECTION.SECOND_METADATA);
+                } else {
+                    result.metadataPath = zipPath;
+                }
+            } else if (artifact && METADATA_NAMES.has(lower)) {
                 if (result.metadataPath) {
                     reject(zipPath, ZIP_REJECTION.SECOND_METADATA);
                 } else {
@@ -315,6 +345,7 @@ module.exports = {
     findDuplicateItems,
     describeItem,
     ZIP_KIND,
+    AGENT_ZIP_FILES,
     isMarkdownDocName,
     assertMarkdownDocParts,
     classifyContentZip,

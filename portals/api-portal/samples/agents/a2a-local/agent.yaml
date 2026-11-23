@@ -1,0 +1,18 @@
+apiVersion: api-portal.api-platform.wso2.com/v1alpha1
+kind: Agent
+metadata:
+  name: contract-clause-checker
+spec:
+  types: [API, LOCAL]
+  # Offered both ways: a hosted A2A 1.0 endpoint (its Agent Card is agent-card.json) and a
+  # Docker image (run-locally.md). The plans offer subscriptions and keys, as for an API.
+  # Name, version, description and skills come from the card.
+  provider: { organization: Example Legal Tech, url: https://legal.example.com }
+  status: PUBLISHED
+  tags: [legal]
+  subscriptionPlans: [Gold]
+
+  interfaces:
+    - type: A2A
+      endpoints:
+        productionUrl: https://gw.example.com/contract-clause-checker

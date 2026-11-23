@@ -112,6 +112,7 @@ AUTH_HEADER="Authorization: Bearer $TOKEN"
 SECONDS=0
 API_CREATED=0; API_SKIPPED=0; API_FAILED=0
 MCP_CREATED=0; MCP_SKIPPED=0; MCP_FAILED=0
+AGENT_CREATED=0; AGENT_SKIPPED=0; AGENT_FAILED=0
 
 # Uploads sample_dir/docs/ as the content ZIP for an already-created API/MCP server.
 # Result is left in DOCS_RESULT (a ready-to-print fragment) and DOCS_FAILED (0/1)
@@ -155,7 +156,13 @@ seed_docs() {
 # shouldn't gain one just for tallying counters.
 bump_counter() {
     local endpoint="$1" field="$2"
-    if [ "$endpoint" = "mcp-servers" ]; then
+    if [ "$endpoint" = "agents" ]; then
+        case "$field" in
+            CREATED) AGENT_CREATED=$((AGENT_CREATED + 1)) ;;
+            SKIPPED) AGENT_SKIPPED=$((AGENT_SKIPPED + 1)) ;;
+            FAILED)  AGENT_FAILED=$((AGENT_FAILED + 1)) ;;
+        esac
+    elif [ "$endpoint" = "mcp-servers" ]; then
         case "$field" in
             CREATED) MCP_CREATED=$((MCP_CREATED + 1)) ;;
             SKIPPED) MCP_SKIPPED=$((MCP_SKIPPED + 1)) ;;
@@ -178,6 +185,8 @@ seed_entry() {
     local sample_dir="$1" endpoint="$2"
     local name; name="$(basename "$sample_dir")"
     local api_yaml="$sample_dir/api.yaml"
+    # Agent samples carry agent.yaml (kind: Agent) instead.
+    [ -f "$sample_dir/agent.yaml" ] && api_yaml="$sample_dir/agent.yaml"
 
     if [ ! -f "$api_yaml" ]; then
         printf "  ${C_YELLOW}%s${C_RESET} %-28s ${C_DIM}(no api.yaml, skipped)${C_RESET}\n" "$SYM_SKIP" "$name"
@@ -191,7 +200,22 @@ seed_entry() {
     local curl_args=(-sk -X POST "$API_PORTAL_URL$API_PORTAL_API_BASE/$endpoint" \
         -H "$AUTH_HEADER" \
         -F "metadata=@$api_yaml;type=application/yaml")
-    if [ -n "$definition" ]; then
+    if [ "$endpoint" = "agents" ]; then
+        # An agent's definition files sit in its folder under the fixed names a ZIP
+        # uses, and each goes in the field for its kind. Documents live in docs/.
+        local agent_file field
+        for agent_file in "$sample_dir"/agent-card.json "$sample_dir"/openapi.{yaml,yml,json} \
+                "$sample_dir"/asyncapi.{yaml,yml,json} "$sample_dir"/run-locally.md; do
+            [ -f "$agent_file" ] || continue
+            case "$(basename "$agent_file")" in
+                agent-card.json) field=a2aDefinition ;;
+                openapi.*) field=restDefinition ;;
+                asyncapi.*) field=eventDefinition ;;
+                run-locally.md) field=localDefinition ;;
+            esac
+            curl_args+=(-F "$field=@$agent_file;type=application/octet-stream")
+        done
+    elif [ -n "$definition" ]; then
         curl_args+=(-F "definition=@$definition;type=application/octet-stream")
     fi
 
@@ -246,9 +270,25 @@ if [ -d "$SAMPLES_DIR/mcps" ]; then
     done
 fi
 
-TOTAL_CREATED=$((API_CREATED + MCP_CREATED))
-TOTAL_SKIPPED=$((API_SKIPPED + MCP_SKIPPED))
-TOTAL_FAILED=$((API_FAILED + MCP_FAILED))
+if [ -d "$SAMPLES_DIR/agents" ]; then
+    echo
+    echo "${C_BOLD}Seeding agents${C_RESET}"
+    # Agents are opt-in: while "agents" isn't in [api_portal.artifacts] enabled_types,
+    # every /agents call answers 404. That is a choice, not a failure, so skip them.
+    agents_status=$(curl -sk -o /dev/null -w "%{http_code}" -H "$AUTH_HEADER" \
+        "$API_PORTAL_URL$API_PORTAL_API_BASE/agents?limit=1")
+    if [ "$agents_status" = "404" ]; then
+        printf "  ${C_YELLOW}%s${C_RESET} ${C_DIM}agents are not enabled on this portal; skipped (add \"agents\" to [api_portal.artifacts] enabled_types)${C_RESET}\n" "$SYM_SKIP"
+    else
+        for dir in "$SAMPLES_DIR"/agents/*/; do
+            [ -d "$dir" ] && seed_entry "${dir%/}" "agents"
+        done
+    fi
+fi
+
+TOTAL_CREATED=$((API_CREATED + MCP_CREATED + AGENT_CREATED))
+TOTAL_SKIPPED=$((API_SKIPPED + MCP_SKIPPED + AGENT_SKIPPED))
+TOTAL_FAILED=$((API_FAILED + MCP_FAILED + AGENT_FAILED))
 
 echo
 if [ "$TOTAL_FAILED" -gt 0 ]; then
@@ -258,7 +298,8 @@ else
 fi
 API_WORD="APIs"; [ "$API_CREATED" -eq 1 ] && API_WORD="API"
 MCP_WORD="MCP servers"; [ "$MCP_CREATED" -eq 1 ] && MCP_WORD="MCP server"
-echo "${STATUS_COLOR}Done${C_RESET} — ${C_BOLD}${TOTAL_CREATED} seeded${C_RESET} (${API_CREATED} ${API_WORD}, ${MCP_CREATED} ${MCP_WORD}), ${TOTAL_SKIPPED} skipped, ${TOTAL_FAILED} failed in ${SECONDS}s"
+AGENT_WORD="agents"; [ "$AGENT_CREATED" -eq 1 ] && AGENT_WORD="agent"
+echo "${STATUS_COLOR}Done${C_RESET} — ${C_BOLD}${TOTAL_CREATED} seeded${C_RESET} (${API_CREATED} ${API_WORD}, ${MCP_CREATED} ${MCP_WORD}, ${AGENT_CREATED} ${AGENT_WORD}), ${TOTAL_SKIPPED} skipped, ${TOTAL_FAILED} failed in ${SECONDS}s"
 
 # CI pins credentials via ADMIN_USERNAME/ADMIN_PASSWORD specifically so this
 # script can run unattended — a failing seed must not be reported as success.

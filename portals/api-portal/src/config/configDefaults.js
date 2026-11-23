@@ -397,6 +397,7 @@ const DEFAULTS = {
         pathToLayout: './src/defaultContent/',
         apiSamplesPath: './samples/apis/',
         mcpSamplesPath: './samples/mcps/',
+        agentSamplesPath: './samples/agents/',
         subscriptionPlansPath: './samples/subscription-plans.yaml',
         applicationsPath: './samples/applications.yaml',
     },

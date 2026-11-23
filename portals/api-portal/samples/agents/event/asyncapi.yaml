@@ -1,0 +1,65 @@
+asyncapi: 3.0.0
+info:
+  title: Payment Fraud Watcher events
+  version: 1.0.0
+  description: Send each payment before it is released; the agent answers with a risk verdict.
+defaultContentType: application/json
+servers:
+  production:
+    host: kafka.acme-finance.com:9092
+    protocol: kafka
+    description: Production Kafka cluster (SASL/SCRAM)
+  sandbox:
+    host: kafka.sandbox.acme-finance.com:9092
+    protocol: kafka
+channels:
+  paymentsRequested:
+    address: payments.requested
+    description: Payments waiting to be released.
+    messages:
+      paymentRequested: { $ref: '#/components/messages/PaymentRequested' }
+  paymentsScored:
+    address: payments.scored
+    description: The agent's verdict for each payment.
+    messages:
+      paymentScored: { $ref: '#/components/messages/PaymentScored' }
+operations:
+  scorePayment:
+    action: receive
+    channel: { $ref: '#/channels/paymentsRequested' }
+    summary: Publish a payment here to have it scored.
+  publishVerdict:
+    action: send
+    channel: { $ref: '#/channels/paymentsScored' }
+    summary: Subscribe here to receive the verdicts.
+components:
+  messages:
+    PaymentRequested:
+      name: PaymentRequested
+      title: A payment waiting for release
+      payload: { $ref: '#/components/schemas/Payment' }
+    PaymentScored:
+      name: PaymentScored
+      title: The risk verdict for a payment
+      payload:
+        type: object
+        required: [paymentId, verdict]
+        properties:
+          paymentId: { type: string }
+          verdict: { type: string, enum: [RELEASE, HOLD, BLOCK] }
+          riskScore: { type: number, minimum: 0, maximum: 1 }
+          reasons: { type: array, items: { type: string } }
+  schemas:
+    Payment:
+      type: object
+      required: [paymentId, amount, currency, payee]
+      properties:
+        paymentId: { type: string }
+        amount: { type: number }
+        currency: { type: string, example: USD }
+        payee:
+          type: object
+          properties:
+            name: { type: string }
+            iban: { type: string }
+            bankDetailsChangedAt: { type: string, format: date-time }

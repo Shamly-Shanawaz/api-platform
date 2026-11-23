@@ -1,0 +1,31 @@
+apiVersion: api-portal.api-platform.wso2.com/v1alpha1
+kind: Agent
+metadata:
+  name: invoice-triage-agent
+spec:
+  types: [API]
+  # The Agent Card (definition.json) supplies the skills, transports, protocol
+  # version and auth, and the provider. No cardUrl, so the page shows
+  # <productionUrl>/.well-known/agent-card.json (and the sandbox one).
+  displayName: Invoice Triage Agent
+  version: v1.2.0
+  description: >-
+    Reads incoming supplier invoices, extracts the fields accounts payable needs,
+    matches them to open purchase orders and flags anything that looks wrong
+    before it reaches an approver.
+  status: PUBLISHED
+  tags: [finance, accounts-payable, documents]
+  businessInformation:
+    businessOwner: Accounts Payable team
+    businessOwnerEmail: ap-team@acme-finance.com
+  # The agent's own ID in its identity provider (here a Thunder agent UUID): shown on the page only.
+  agentId: 2f9c4e1a-7b3d-4c8e-9a61-5d2b0e8f4c17
+  models:
+    - { provider: Anthropic, name: claude-sonnet-4-5 }
+  subscriptionPlans: [Bronze, Gold]
+
+  interfaces:
+    - type: A2A
+      endpoints:
+        productionUrl: https://agents.acme-finance.com/invoice-triage
+        sandboxUrl: https://sandbox.agents.acme-finance.com/invoice-triage

@@ -1,0 +1,116 @@
+{
+  "name": "Invoice Triage Agent",
+  "description": "Extracts, matches and checks supplier invoices for accounts payable.",
+  "version": "1.2.0",
+  "provider": {
+    "organization": "Acme Finance Platform",
+    "url": "https://acme-finance.com"
+  },
+  "supportedInterfaces": [
+    {
+      "url": "https://agents.acme-finance.com/invoice-triage",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    },
+    {
+      "url": "https://agents.acme-finance.com/invoice-triage/grpc",
+      "protocolBinding": "GRPC",
+      "protocolVersion": "1.0"
+    },
+    {
+      "url": "https://agents.acme-finance.com/invoice-triage/rest",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false
+  },
+  "defaultInputModes": [
+    "application/pdf",
+    "image/png",
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "securitySchemes": {
+    "bearer": {
+      "httpAuthSecurityScheme": {
+        "scheme": "Bearer",
+        "bearerFormat": "JWT",
+        "description": "Token from a subscribed application."
+      }
+    },
+    "apiKey": {
+      "apiKeySecurityScheme": {
+        "location": "header",
+        "name": "X-API-Key"
+      }
+    }
+  },
+  "securityRequirements": [
+    {
+      "schemes": {
+        "bearer": {
+          "list": []
+        }
+      }
+    },
+    {
+      "schemes": {
+        "apiKey": {
+          "list": []
+        }
+      }
+    }
+  ],
+  "skills": [
+    {
+      "id": "extract-invoice-fields",
+      "name": "Extract invoice fields",
+      "description": "Reads a PDF or scanned invoice and returns vendor, invoice number, dates, currency, line items and totals as structured JSON.",
+      "tags": [
+        "ocr",
+        "extraction"
+      ],
+      "examples": [
+        "Pull the vendor, due date and total from this PDF.",
+        "What are the line items on invoice INV-20931?"
+      ],
+      "inputModes": [
+        "application/pdf",
+        "image/png"
+      ],
+      "outputModes": [
+        "application/json"
+      ]
+    },
+    {
+      "id": "match-purchase-order",
+      "name": "Match to purchase order",
+      "description": "Finds the open purchase order an invoice belongs to and reports quantity or price differences beyond the configured tolerance.",
+      "tags": [
+        "three-way-match"
+      ],
+      "examples": [
+        "Which PO does this invoice belong to?",
+        "Does INV-20931 match PO-7781 within 2%?"
+      ]
+    },
+    {
+      "id": "flag-anomalies",
+      "name": "Flag anomalies",
+      "description": "Checks for duplicate invoices, changed bank details and totals that do not add up, and explains each flag.",
+      "tags": [
+        "fraud",
+        "controls"
+      ],
+      "examples": [
+        "Is this a duplicate of anything we paid last quarter?"
+      ]
+    }
+  ]
+}

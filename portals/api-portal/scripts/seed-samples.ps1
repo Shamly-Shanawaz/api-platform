@@ -156,6 +156,7 @@ $AuthHeader = "Authorization: Bearer $Token"
 $StartTime = Get-Date
 $ApiCreated = 0; $ApiSkipped = 0; $ApiFailed = 0
 $McpCreated = 0; $McpSkipped = 0; $McpFailed = 0
+$AgentCreated = 0; $AgentSkipped = 0; $AgentFailed = 0
 
 function Add-Counter([string]$Endpoint, [string]$Field) {
     if ($Endpoint -eq 'mcp-servers') {
@@ -163,6 +164,12 @@ function Add-Counter([string]$Endpoint, [string]$Field) {
             'CREATED' { $script:McpCreated++ }
             'SKIPPED' { $script:McpSkipped++ }
             'FAILED'  { $script:McpFailed++ }
+        }
+    } elseif ($Endpoint -eq 'agents') {
+        switch ($Field) {
+            'CREATED' { $script:AgentCreated++ }
+            'SKIPPED' { $script:AgentSkipped++ }
+            'FAILED'  { $script:AgentFailed++ }
         }
     } else {
         switch ($Field) {
@@ -227,13 +234,17 @@ function Invoke-SeedDocs([string]$SampleDir, [string]$ResourcePath) {
     }
 }
 
-# Creates one API or MCP server entry from a sample directory (api.yaml +
-# optional definition.* + optional docs\), via the given collection endpoint.
+# Creates one API, MCP server or agent entry from a sample directory (api.yaml,
+# or agent.yaml for an agent, + optional definition files + optional docs\), via
+# the given collection endpoint.
 # Prints exactly one summary line per sample and tallies the outcome into the
 # *Created/*Skipped/*Failed counters (bucketed by $Endpoint).
 function Invoke-SeedEntry([string]$SampleDir, [string]$Endpoint) {
     $name = Split-Path -Leaf $SampleDir
     $apiYaml = Join-Path $SampleDir 'api.yaml'
+    # Agent samples carry agent.yaml (kind: Agent) instead.
+    $agentYaml = Join-Path $SampleDir 'agent.yaml'
+    if (Test-Path -LiteralPath $agentYaml) { $apiYaml = $agentYaml }
 
     if (-not (Test-Path -LiteralPath $apiYaml)) {
         Write-SampleLine $SymSkip 'Yellow' $name '(no api.yaml, skipped)'
@@ -253,7 +264,22 @@ function Invoke-SeedEntry([string]$SampleDir, [string]$Endpoint) {
         $curlArgs = @('-sk', '-X', 'POST', "$ApiPortalUrl$ApiPortalApiBase/$Endpoint",
             '-H', $AuthHeader,
             '-F', "metadata=@$apiYaml;type=application/yaml")
-        if ($definition) {
+        if ($Endpoint -eq 'agents') {
+            # An agent's definition files sit in its folder under the fixed names a ZIP
+            # uses, and each goes in the field for its kind. Documents live in docs\.
+            $agentFields = [ordered]@{
+                'agent-card.json' = 'a2aDefinition'
+                'openapi.yaml' = 'restDefinition'; 'openapi.yml' = 'restDefinition'; 'openapi.json' = 'restDefinition'
+                'asyncapi.yaml' = 'eventDefinition'; 'asyncapi.yml' = 'eventDefinition'; 'asyncapi.json' = 'eventDefinition'
+                'run-locally.md' = 'localDefinition'
+            }
+            foreach ($fileName in $agentFields.Keys) {
+                $agentFile = Join-Path $SampleDir $fileName
+                if (Test-Path -LiteralPath $agentFile -PathType Leaf) {
+                    $curlArgs += @('-F', "$($agentFields[$fileName])=@$agentFile;type=application/octet-stream")
+                }
+            }
+        } elseif ($definition) {
             $curlArgs += @('-F', "definition=@$($definition.FullName);type=application/octet-stream")
         }
 
@@ -318,16 +344,31 @@ if (Test-Path -LiteralPath $mcpsDir -PathType Container) {
     Get-ChildItem -LiteralPath $mcpsDir -Directory | ForEach-Object { Invoke-SeedEntry $_.FullName 'mcp-servers' }
 }
 
-$TotalCreated = $ApiCreated + $McpCreated
-$TotalSkipped = $ApiSkipped + $McpSkipped
-$TotalFailed = $ApiFailed + $McpFailed
+$agentsDir = Join-Path $SamplesDir 'agents'
+if (Test-Path -LiteralPath $agentsDir -PathType Container) {
+    Write-Host ''
+    Write-Host 'Seeding agents'
+    # Agents are opt-in: while "agents" isn't in [api_portal.artifacts] enabled_types,
+    # every /agents call answers 404. That is a choice, not a failure, so skip them.
+    $agentsStatus = Invoke-CurlQuiet { & curl.exe -sk -o NUL -w '%{http_code}' -H $AuthHeader "$ApiPortalUrl$ApiPortalApiBase/agents?limit=1" }
+    if (([string]$agentsStatus).Trim() -eq '404') {
+        Write-SampleLine $SymSkip 'Yellow' 'agents' '(not enabled on this portal; add "agents" to [api_portal.artifacts] enabled_types)'
+    } else {
+        Get-ChildItem -LiteralPath $agentsDir -Directory | ForEach-Object { Invoke-SeedEntry $_.FullName 'agents' }
+    }
+}
+
+$TotalCreated = $ApiCreated + $McpCreated + $AgentCreated
+$TotalSkipped = $ApiSkipped + $McpSkipped + $AgentSkipped
+$TotalFailed = $ApiFailed + $McpFailed + $AgentFailed
 $Elapsed = [int]((Get-Date) - $StartTime).TotalSeconds
 
 Write-Host ''
 $statusColor = if ($TotalFailed -gt 0) { 'Red' } else { 'Green' }
 $apiWord = if ($ApiCreated -eq 1) { 'API' } else { 'APIs' }
 $mcpWord = if ($McpCreated -eq 1) { 'MCP server' } else { 'MCP servers' }
-$summary = "$TotalCreated seeded ($ApiCreated $apiWord, $McpCreated $mcpWord), $TotalSkipped skipped, $TotalFailed failed in ${Elapsed}s"
+$agentWord = if ($AgentCreated -eq 1) { 'agent' } else { 'agents' }
+$summary = "$TotalCreated seeded ($ApiCreated $apiWord, $McpCreated $mcpWord, $AgentCreated $agentWord), $TotalSkipped skipped, $TotalFailed failed in ${Elapsed}s"
 if ($UseColor) {
     Write-Host -NoNewline 'Done' -ForegroundColor $statusColor
     Write-Host " — $summary"

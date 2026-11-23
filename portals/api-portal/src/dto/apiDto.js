@@ -18,6 +18,7 @@
  */
 const constants = require('../utils/constants');
 const { applyAudit } = require('./dtoUtils');
+const { parseJsonColumn } = require('../db/rows');
 
 class APIDTO {
     constructor(api, audit) {
@@ -71,6 +72,10 @@ class APIInfo {
         }
         if (apiInfo.labels) {
             this.labels = apiInfo.labels.map(label => label.handle);
+        }
+        if (apiInfo.type === constants.API_TYPE.AGENT) {
+            // Agent-only fields live in metadata_search (JSONB on postgres, TEXT elsewhere).
+            this.agent = parseJsonColumn(apiInfo.metadata_search)?.agent || {};
         }
     }
 }

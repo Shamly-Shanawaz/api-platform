@@ -1,0 +1,22 @@
+{
+  "name": "Accounts Payable Assistant",
+  "description": "Handles supplier invoices end to end: triage, PO matching and approval routing.",
+  "version": "2.0.0",
+  "provider": { "organization": "Acme Finance Platform", "url": "https://acme-finance.com" },
+  "supportedInterfaces": [
+    { "url": "https://agents.acme-finance.com/ap-assistant", "protocolBinding": "JSONRPC", "protocolVersion": "1.0" }
+  ],
+  "capabilities": { "streaming": true, "pushNotifications": false },
+  "defaultInputModes": ["application/pdf", "text/plain"],
+  "defaultOutputModes": ["application/json", "text/plain"],
+  "securitySchemes": {
+    "oauth": { "httpAuthSecurityScheme": { "scheme": "Bearer", "bearerFormat": "JWT", "description": "Access token from your OAuth2 key in the API Portal." } },
+    "subscription": { "apiKeySecurityScheme": { "location": "header", "name": "Subscription-Key", "description": "Your subscription token from the API Portal." } }
+  },
+  "securityRequirements": [ { "schemes": { "oauth": { "list": [] }, "subscription": { "list": [] } } } ],
+  "skills": [
+    { "id": "triage", "name": "Triage an invoice", "description": "Checks amount, PO and payee details and says approve or hold.", "examples": ["Invoice INV-9 for $1,200 against PO-778"] },
+    { "id": "route", "name": "Route for approval", "description": "Sends an invoice to the right approver based on amount and cost centre." },
+    { "id": "status", "name": "Explain an invoice's status", "description": "Says where an invoice is in the approval flow and why." }
+  ]
+}

@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: Claims Intake Agent
+  version: 1.0.3
+servers:
+  - url: https://agents.insure.example.com/claims-intake
+paths:
+  /threads:
+    post:
+      summary: Create a thread
+      responses:
+        "200":
+          description: The new thread.
+  /threads/{thread_id}/runs:
+    post:
+      summary: Start a run on a thread
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The started run.
+  /threads/{thread_id}/runs/{run_id}:
+    get:
+      summary: Get a run
+      parameters:
+        - name: thread_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The run.
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+security:
+  - apiKey: []

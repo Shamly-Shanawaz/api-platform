@@ -1,0 +1,34 @@
+apiVersion: api-portal.api-platform.wso2.com/v1alpha1
+kind: Agent
+metadata:
+  name: repo-docs-writer
+spec:
+  types: [LOCAL]
+  # Run it yourself: no interfaces or plans. run-locally.md says how; the page shows it as written.
+  displayName: Repo Docs Writer
+  version: v2.3.0
+  description: >-
+    Reads a code repository and writes or refreshes its README, architecture
+    overview and module docs. Runs on your machine or in CI, with your own
+    model credentials.
+  provider: { organization: Acme Developer Tools }
+  status: PUBLISHED
+  tags: [developer-tools, documentation, ci]
+  models:
+    - { provider: Any OpenAI-compatible }
+
+  skills:
+    - id: write-readme
+      name: Write a README
+      description: Generates a README with install, usage and configuration sections from the code and existing docs.
+      tags: [docs]
+      examples:
+        - repo-docs-writer run --only readme
+    - id: architecture-overview
+      name: Architecture overview
+      description: Writes docs/architecture.md describing the main modules and how requests flow between them.
+    - id: docs-drift-check
+      name: Docs drift check
+      description: Fails a CI job when public functions changed but their docs did not.
+      tags: [ci]
+

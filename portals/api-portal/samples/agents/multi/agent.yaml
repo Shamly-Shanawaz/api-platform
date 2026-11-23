@@ -1,0 +1,30 @@
+apiVersion: api-portal.api-platform.wso2.com/v1alpha1
+kind: Agent
+metadata:
+  name: accounts-payable-assistant
+spec:
+  types: [API, EVENT, LOCAL]
+  # All three ways at once: call it over A2A (agent-card.json) or a plain REST API (openapi.yaml),
+  # let it react to invoice events on the broker, or run it yourself with Docker.
+  displayName: Accounts Payable Assistant
+  version: v2.0.0
+  description: >-
+    Handles supplier invoices end to end. Ask it over A2A or REST, let it pick invoices up from
+    the event stream as they arrive, or run your own copy inside your network.
+  status: PUBLISHED
+  tags: [finance, accounts-payable, events]
+  models:
+    - { provider: Anthropic, name: claude-sonnet-4-5 }
+  subscriptionPlans: [Bronze, Gold]
+
+  interfaces:
+    - type: A2A
+      endpoints:
+        productionUrl: https://agents.acme-finance.com/ap-assistant
+        sandboxUrl: https://sandbox.agents.acme-finance.com/ap-assistant
+    - type: REST
+      protocol: CUSTOM
+      endpoints:
+        productionUrl: https://api.acme-finance.com/ap-assistant/v2
+    - type: EVENT
+

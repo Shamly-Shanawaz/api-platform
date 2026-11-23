@@ -555,6 +555,7 @@ enabled_types = ["apis", "mcp-servers", "api-workflows"]
 # path_to_layout = "./src/defaultContent/"
 # api_samples_path = "./samples/apis/"
 # mcp_samples_path = "./samples/mcps/"
+# agent_samples_path = "./samples/agents/"
 # subscription_plans_path = "./samples/subscription-plans.yaml"
 # applications_path = "./samples/applications.yaml"
 

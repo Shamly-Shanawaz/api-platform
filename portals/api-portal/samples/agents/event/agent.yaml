@@ -1,0 +1,24 @@
+apiVersion: api-portal.api-platform.wso2.com/v1alpha1
+kind: Agent
+metadata:
+  name: payment-fraud-watcher
+spec:
+  types: [EVENT]
+  # Event-driven: nobody calls it. It listens for payment events on the broker and
+  # publishes a risk verdict. Brokers, topics and messages come from the AsyncAPI document.
+  displayName: Payment Fraud Watcher
+  version: v1.0.0
+  description: >-
+    Watches every outgoing supplier payment, scores it for fraud risk (changed bank details,
+    unusual amounts, new payees) and publishes a verdict that the payment system waits for.
+  status: PUBLISHED
+  tags: [finance, payments, fraud, events]
+  models:
+    - { provider: Anthropic, name: claude-haiku-4-5 }
+  skills:
+    - id: score-payment
+      name: Score a payment for fraud risk
+      description: Checks payee history, bank-detail changes and amount patterns, and returns RELEASE, HOLD or BLOCK with reasons.
+      tags: [fraud, payments]
+  interfaces:
+    - type: EVENT

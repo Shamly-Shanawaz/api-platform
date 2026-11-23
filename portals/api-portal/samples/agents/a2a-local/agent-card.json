@@ -1,0 +1,42 @@
+{
+  "name": "Contract Clause Checker",
+  "description": "Flags risky clauses in contracts. Use the hosted service, or run it inside your own network.",
+  "version": "0.9.0",
+  "provider": {
+    "organization": "Example Legal Tech",
+    "url": "https://legal.example.com"
+  },
+  "supportedInterfaces": [
+    {
+      "url": "https://gw.example.com/contract-clause-checker",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {
+    "streaming": true
+  },
+  "defaultInputModes": ["text/plain", "application/pdf"],
+  "defaultOutputModes": ["application/json"],
+  "securitySchemes": {
+    "bearer": {
+      "httpAuthSecurityScheme": {
+        "scheme": "Bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "securityRequirements": [
+    { "schemes": { "bearer": { "list": [] } } }
+  ],
+  "skills": [
+    {
+      "id": "flag-clauses",
+      "name": "Flag risky clauses",
+      "description": "Lists clauses that differ from the standard playbook and explains the risk.",
+      "tags": ["legal", "review"],
+      "examples": ["Check this NDA against our standard playbook."],
+      "inputModes": ["application/pdf", "text/plain"]
+    }
+  ]
+}

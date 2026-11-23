@@ -512,7 +512,10 @@ function handleError(res, error) {
             status: 'error',
             code: 'COMMON_VALIDATION_ERROR',
             message: 'Bad Request',
-            errors: error.errors || [{ message: error.message }],
+            // A validator that collects every problem (agents) lists them all in `details`.
+            errors: error.errors || (Array.isArray(error.details) && error.details.length
+                ? error.details.map((message) => ({ message }))
+                : [{ message: error.message }]),
         });
     } else if (error instanceof NotFoundError) {
         return res.status(404).json({

@@ -45,6 +45,9 @@ tags:
   - name: MCP Servers
   - name: MCP Server Content
   - name: MCP Server Keys
+  - name: Agents
+  - name: Agent Content
+  - name: Agent Keys
   - name: Subscription Plans
   - name: Labels
   - name: Applications
@@ -2312,6 +2315,259 @@ paths:
         - OAuth2Security:
             - dp:mcp_server_content:delete
             - dp:mcp_server_content:manage
+  /agents:
+    post:
+      tags:
+        - Agents
+      summary: Onboard an agent
+      description: >-
+        Creates an agent from a `kind: Agent` document (apiVersion
+        `api-portal.api-platform.wso2.com/v1alpha1`), sent as a `metadata` JSON string, a `metadata`
+        file (`agent.yaml`), or an `artifact` ZIP. An agent has at most one interface per type (A2A, REST,
+        EVENT). Definition files are uploaded beside the document, one field per kind (see the
+        request body): an Agent Card for A2A, an OpenAPI document for REST, an AsyncAPI 2/3 document
+        for EVENT (required there), and for LOCAL a Markdown file that says how to run it yourself
+        (required there). Unknown fields are rejected and every problem is listed in
+        `errors`, naming the field. As for APIs and MCP servers, `spec.subscriptionPlans` decides
+        whether developers can subscribe and get keys (allowed only when `spec.types` includes API).
+        Answers 404 when agents are not enabled on the portal.
+      operationId: createAgent
+      requestBody:
+        $ref: "#/components/requestBodies/AgentMultipartBody"
+      responses:
+        "201":
+          $ref: "#/components/responses/AgentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent:create
+            - dp:agent:manage
+    get:
+      tags:
+        - Agents
+      summary: List agents
+      description: >-
+        Lists the organization's agents as lightweight items, without definition content.
+      operationId: getAllAgentsForOrganization
+      parameters:
+        - $ref: "#/components/parameters/searchQuery"
+        - $ref: "#/components/parameters/nameQuery"
+        - $ref: "#/components/parameters/versionQuery"
+        - $ref: "#/components/parameters/tagsQuery"
+        - $ref: "#/components/parameters/viewQuery"
+        - $ref: "#/components/parameters/agentTypeQuery"
+        - $ref: "#/components/parameters/agentProtocolQuery"
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/AgentListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent:read
+            - dp:agent:manage
+  /agents/{agentId}:
+    parameters:
+      - $ref: "#/components/parameters/agentId"
+    get:
+      tags:
+        - Agents
+      summary: Get an agent
+      description: >-
+        Retrieves an agent: its metadata, the `kind: Agent` document as written (`document`, for
+        GET -> edit -> PUT), and, on each A2A and REST interface, whether its definition file is stored
+        (`interfaces[].hasDefinition`).
+      operationId: getAgent
+      responses:
+        "200":
+          $ref: "#/components/responses/AgentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent:read
+            - dp:agent:manage
+    put:
+      tags:
+        - Agents
+      summary: Update an agent
+      description: >-
+        Replaces an agent's document, in the same formats as create. `metadata.name` must be the
+        agent's handle. A definition field not sent keeps the stored file; removing an interface
+        (or LOCAL) removes its file.
+      operationId: updateAgent
+      requestBody:
+        $ref: "#/components/requestBodies/AgentMultipartBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/AgentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent:update
+            - dp:agent:manage
+    delete:
+      tags:
+        - Agents
+      summary: Delete an agent
+      description: Deletes an agent that has no subscriptions or active API keys.
+      operationId: deleteAgent
+      responses:
+        "200":
+          $ref: "#/components/responses/TextMessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent:delete
+            - dp:agent:manage
+  /agents/{agentId}/assets:
+    parameters:
+      - $ref: "#/components/parameters/agentId"
+    post:
+      tags:
+        - Agent Content
+      summary: Upload agent content
+      description: >-
+        Uploads the static content package (docs, landing page, images) for an agent. Mirrors the
+        MCP server operation.
+      operationId: createAgentContent
+      requestBody:
+        $ref: "#/components/requestBodies/ContentZipMultipartBody"
+      responses:
+        "201":
+          $ref: "#/components/responses/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_content:manage
+    put:
+      tags:
+        - Agent Content
+      summary: Replace agent content
+      description: >-
+        Replaces all of an agent's content (documents, landing page, images) with the ZIP's. The
+        definition files are never changed. Returns `201` when the agent had no content and the
+        upload adds some, and `200` otherwise. Mirrors the MCP server operation.
+      operationId: replaceAgentContent
+      requestBody:
+        $ref: "#/components/requestBodies/ContentZipMultipartBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/MessageResponse"
+        "201":
+          $ref: "#/components/responses/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_content:manage
+    get:
+      tags:
+        - Agent Content
+      summary: Get an agent content file
+      description: >-
+        Retrieves one stored agent content file. Image files (`type=IMAGE`) are publicly readable, as
+        for `GET /apis/{apiId}/assets`, so an agent's icon renders on the public listing and agent
+        pages; every other type requires a session. The definition files are read by type alone
+        (one per agent): `AGENT_CARD`, `API_DEFINITION` (OpenAPI), `AGENT_EVENT_DEFINITION`
+        (AsyncAPI) and `AGENT_LOCAL_DEFINITION` (Markdown), exactly as uploaded, with
+        `X-Content-Type-Options: nosniff`.
+      operationId: getAgentContentFile
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/contentTypeQuery"
+        - name: fileName
+          in: query
+          required: false
+          schema:
+            type: string
+            example: getting-started.md
+          description: The stored file name. Required except for the definition types.
+        - name: orgId
+          in: query
+          required: false
+          deprecated: true
+          schema:
+            type: string
+          description: Ignored, as on `GET /apis/{apiId}/assets`; accepted because the portal's image URLs carry it.
+      responses:
+        "200":
+          $ref: "#/components/responses/ContentAssetResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/TextMessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags:
+        - Agent Content
+      summary: Delete agent content files
+      description: Deletes stored agent content.
+      operationId: deleteAgentContentFile
+      parameters:
+        - $ref: "#/components/parameters/contentTypeQuery"
+        - $ref: "#/components/parameters/fileNameQuery"
+      responses:
+        "204":
+          description: Agent content deleted.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/TextMessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - OAuth2Security:
+            - dp:agent_content:manage
   /mcp-servers/{mcpServerId}/api-keys/generate:
     parameters:
       - $ref: "#/components/parameters/mcpServerId"
@@ -3782,6 +4038,31 @@ components:
         type: string
         example: weather-api-v1
       description: The API's handle (unique per org). Resolves only to REST/SOAP/WS/WebSub/GraphQL APIs — MCP servers are addressed via `/mcp-servers`.
+    agentId:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+        maxLength: 255
+        example: invoice-triage-agent
+      description: The agent's handle (`metadata.name`), unique per org.
+    agentTypeQuery:
+      name: type
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [API, EVENT, LOCAL, A2A, REST]
+      description: Only agents with this use type (API, EVENT, LOCAL) or interface type (A2A, REST; EVENT matches both).
+    agentProtocolQuery:
+      name: protocol
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 64
+      description: Only agents with a REST interface of this protocol label (matched case-insensitively).
     mcpServerId:
       name: mcpServerId
       in: path
@@ -4540,6 +4821,52 @@ components:
                   "status":"PUBLISHED","tags":["weather"],"labels":["default"],"endPoints":{
                   "productionURL":"https://api.example.com/weather",
                   "sandboxURL":"https://sandbox.example.com/weather"},"subscriptionPlans":[{"id":"Gold"}]}
+    AgentMultipartBody:
+      required: true
+      description: >-
+        Agent upload, in exactly one form: a `metadata` JSON string (the `kind: Agent` document as
+        JSON); a `metadata` file (`agent.yaml`, `agent.yml`, `metadata.yaml`); or an `artifact` ZIP
+        holding `agent.yaml`, the definition files at the ZIP root under fixed names
+        (`agent-card.json`, `openapi.yaml|yml|json`, `asyncapi.yaml|yml|json`, `run-locally.md`), and
+        optional `docs/` and `web/` folders. With the first two forms, send each
+        definition file in the field for its kind; every interface needs its file: `a2aDefinition`
+        (Agent Card, with an A2A interface), `restDefinition` (OpenAPI, with a REST interface),
+        `eventDefinition` (AsyncAPI, with an EVENT interface) and `localDefinition` (Markdown, when
+        `spec.types` has LOCAL). A file needs its
+        interface (or LOCAL). On update, a field not sent keeps the stored file; removing an
+        interface removes its file. Optional `docs` parts (Markdown) add documents or replace them
+        by file name; `docs` is left undeclared, as on the API body.
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              artifact:
+                type: string
+                format: binary
+                description: Full agent ZIP artifact.
+              metadata:
+                type: string
+                description: "The `kind: Agent` document, as a JSON string or an uploaded YAML/JSON file."
+              a2aDefinition:
+                type: string
+                format: binary
+                description: The A2A interface's Agent Card (JSON). Required with an A2A interface.
+              restDefinition:
+                type: string
+                format: binary
+                description: The REST interface's OpenAPI document (YAML or JSON). Required with a REST interface.
+              eventDefinition:
+                type: string
+                format: binary
+                description: The EVENT interface's AsyncAPI 2 or 3 document (YAML or JSON).
+              localDefinition:
+                type: string
+                format: binary
+                description: The Markdown file that says how to run the agent yourself (LOCAL).
+              docsToRemove:
+                type: string
+                description: On update, a JSON list of document file names to remove, e.g. `["overview.md"]`.
     McpServerMultipartBody:
       required: true
       description: >-
@@ -4864,8 +5191,17 @@ components:
     ContentAssetResponse:
       description: >-
         Stored API content asset. The concrete media type depends on the stored file extension or whether the content is
-        an external document link.
+        an external document link. An agent's definition files come as `application/json` (Agent Card, JSON
+        OpenAPI/AsyncAPI), `application/x-yaml` (YAML OpenAPI/AsyncAPI) or `text/markdown` (run-it-yourself guide).
       content:
+        text/markdown:
+          schema:
+            type: string
+          example: "# Run it yourself"
+        application/x-yaml:
+          schema:
+            type: string
+          example: "openapi: 3.1.0"
         text/css:
           schema:
             type: string
@@ -5157,6 +5493,33 @@ components:
               total: 1
               limit: 20
               offset: 0
+    AgentResponse:
+      description: An agent, in the agent shape (also returned by create and update).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AgentMetadata"
+    AgentListResponse:
+      description: A page of agents, as lightweight items.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              list:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentListItem"
+              count:
+                type: integer
+              pagination:
+                $ref: "#/components/schemas/Pagination"
+    PayloadTooLarge:
+      description: An uploaded file or document is larger than the portal accepts.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
     McpServerCreateResponse:
       description: Created MCP server metadata payload returned by the service. Always typed `MCP`.
       headers:
@@ -5861,6 +6224,107 @@ components:
               id: my-weather-app
               displayName: Weather App
   schemas:
+    AgentListItem:
+      type: object
+      description: The lightweight agent shape used in listings. Never carries definition content.
+      properties:
+        id:
+          type: string
+          description: The agent's handle.
+        displayName:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+          nullable: true
+        types:
+          type: array
+          description: How the agent is used. API (call it), EVENT (exchange events), LOCAL (run it yourself).
+          items:
+            type: string
+            enum: [API, EVENT, LOCAL]
+        interfaceTypes:
+          type: array
+          description: The kinds of interface the agent offers, in document order.
+          items:
+            type: string
+            enum: [A2A, REST, EVENT]
+        protocols:
+          type: array
+          description: The REST interfaces' protocol labels (free text).
+          items:
+            type: string
+        status:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        agentVisibility:
+          type: string
+    AgentMetadata:
+      description: An agent's metadata and document, without definition file content.
+      allOf:
+        - $ref: "#/components/schemas/AgentListItem"
+        - type: object
+          properties:
+            labels:
+              type: array
+              items:
+                type: string
+            subscriptionPlans:
+              type: array
+              items:
+                type: string
+            referenceId:
+              type: string
+              description: The publishing system's ID (`spec.referenceId`); absent for agents added in the portal.
+            agentId:
+              type: string
+              description: The agent's own ID in its identity provider (`spec.agentId`). Shown only.
+            annotations:
+              type: object
+              additionalProperties:
+                type: string
+            provider:
+              type: object
+            models:
+              type: array
+              items:
+                type: object
+            skills:
+              type: array
+              items:
+                type: object
+            skillIds:
+              type: object
+              description: A stable portal UUID per skill id, kept across updates.
+              additionalProperties:
+                type: string
+            interfaces:
+              type: array
+              description: >-
+                `spec.interfaces`, at most one per type. Every interface needs its definition file
+                (A2A its Agent Card, REST its OpenAPI, EVENT its AsyncAPI). Each A2A and REST
+                interface carries `hasDefinition`: whether that file is stored (read it with
+                `GET /agents/{agentId}/assets?type=AGENT_CARD` or `API_DEFINITION`).
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [A2A, REST, EVENT]
+                  hasDefinition:
+                    type: boolean
+                additionalProperties: true
+            businessInformation:
+              type: object
+            document:
+              type: object
+              description: >-
+                The `kind: Agent` document as written (apiVersion, kind, metadata, spec), for GET ->
+                edit -> PUT. Listing fields filled from the Agent Card are left out.
     Pagination:
       type: object
       description: Standard pagination metadata returned with collection responses.

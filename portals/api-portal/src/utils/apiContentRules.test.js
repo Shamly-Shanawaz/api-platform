@@ -404,4 +404,27 @@ describe('classifyContentZip', () => {
         assert.strictEqual(result.metadataPath, null);
         assert.deepStrictEqual(result.rejected.map((r) => r.path), ['api.yaml', 'definition.json']);
     });
+
+    test('an artifact with agent.yaml keeps its fixed-name definition files', () => {
+        const result = classifyContentZip(
+            ['bundle/agent.yaml', 'bundle/agent-card.json', 'bundle/run-locally.md', 'bundle/docs/overview.md'], 'artifact');
+        assert.strictEqual(result.metadataPath, 'bundle/agent.yaml');
+        assert.strictEqual(result.definitionPath, null);
+        assert.deepStrictEqual(result.agentFiles, ['bundle/agent-card.json', 'bundle/run-locally.md']);
+        assert.deepStrictEqual(result.items.map((i) => i.path), ['bundle/docs/overview.md']);
+        assert.deepStrictEqual(result.rejected, []);
+    });
+
+    test('an agent ZIP rejects a second agent metadata file, other top-level files and unknown folders', () => {
+        const result = classifyContentZip(['agent.yaml', 'agent.yml', 'card.json', 'scripts/run.sh'], 'artifact');
+        assert.strictEqual(result.metadataPath, 'agent.yaml');
+        assert.deepStrictEqual(result.agentFiles, []);
+        assert.deepStrictEqual(result.rejected.map((r) => r.path), ['agent.yml', 'card.json', 'scripts/']);
+    });
+
+    test('agent.yaml in a content ZIP is not an agent ZIP', () => {
+        const result = classifyContentZip(['agent.yaml'], 'content');
+        assert.strictEqual(result.agentFiles, undefined);
+        assert.deepStrictEqual(result.rejected.map((r) => r.path), ['agent.yaml']);
+    });
 });

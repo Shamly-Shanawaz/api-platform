@@ -1,0 +1,29 @@
+apiVersion: api-portal.api-platform.wso2.com/v1alpha1
+kind: Agent
+metadata:
+  name: claims-intake-agent
+spec:
+  types: [API]
+  # The OpenAPI document (openapi.yaml) supplies the operations and auth. With no A2A
+  # interface, the skills are written here.
+  displayName: Claims Intake Agent
+  version: v1.0.3
+  description: >-
+    Collects first notice of loss for motor claims through a guided
+    conversation and creates a claim record. Replaced by Claims Intake Agent v2.
+  status: DEPRECATED
+  tags: [insurance, claims]
+  subscriptionPlans: [Bronze]
+
+  skills:
+    - id: fnol
+      name: Record first notice of loss
+      description: Asks the policyholder what happened, when and where, and files a draft claim.
+      examples:
+        - I was rear-ended at a junction this morning.
+
+  interfaces:
+    - type: REST
+      protocol: AGENT_PROTOCOL          # shown as "Agent Protocol"
+      endpoints:
+        productionUrl: https://agents.insure.example.com/claims-intake

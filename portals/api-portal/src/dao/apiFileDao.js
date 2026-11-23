@@ -235,14 +235,17 @@ const deleteAll = async (type, orgId, apiId, t) => {
 };
 
 /**
- * Delete all content of an API — every row except its definition and schema — so a
- * replace also clears rows saved under types that are no longer accepted.
+ * Delete all content of an API — every row except its definition files (an API's
+ * definition and schema, an agent's definition files) — so a replace also clears rows
+ * saved under types that are no longer accepted.
  */
 const deleteAllContent = async (apiId, t) => {
     const exec = t || db;
+    const DEFINITION_TYPES = [...new Set([constants.DOC_TYPES.API_DEFINITION, constants.DOC_TYPES.SCHEMA_DEFINITION,
+        ...AGENT_DEFINITION_TYPES])];
     const { rowCount } = await exec.execute(
-        `DELETE FROM ${CONTENT_TABLE} WHERE api_uuid = ? AND portal_id = ? AND type NOT IN (?, ?)`,
-        [apiId, getPortalId(), constants.DOC_TYPES.API_DEFINITION, constants.DOC_TYPES.SCHEMA_DEFINITION]
+        `DELETE FROM ${CONTENT_TABLE} WHERE api_uuid = ? AND portal_id = ? AND type NOT IN (${DEFINITION_TYPES.map(() => '?').join(', ')})`,
+        [apiId, getPortalId(), ...DEFINITION_TYPES]
     );
     return rowCount;
 };
@@ -447,8 +450,40 @@ const deleteByFileName = async (fileName, orgId, apiId, t) => {
     }
 };
 
+/*
+ * Agent definition files: at most one row per type (one interface per type): AGENT_CARD,
+ * API_DEFINITION (OpenAPI), AGENT_EVENT_DEFINITION (AsyncAPI) and the run-locally
+ * Markdown (AGENT_LOCAL_DEFINITION). Reads are tenant-scoped.
+ */
+const AGENT_DEFINITION_TYPES = [
+    constants.DOC_TYPES.AGENT_CARD,
+    constants.DOC_TYPES.API_DEFINITION,
+    constants.DOC_TYPES.AGENT_EVENT_DEFINITION,
+    constants.DOC_TYPES.AGENT_LOCAL_DEFINITION,
+];
+
+/**
+ * An agent's definition files. `types` narrows them (default: all four); `withContent:
+ * false` returns only the type and file name, for callers that just need to know what is
+ * stored, without reading the files.
+ */
+const listAgentDefinitions = async (orgId, apiId, t, { types = AGENT_DEFINITION_TYPES, withContent = true } = {}) => {
+    const exec = t || db;
+    const wanted = types.filter((type) => AGENT_DEFINITION_TYPES.includes(type));
+    if (!wanted.length) {
+        return [];
+    }
+    const columns = withContent ? 'c.*' : 'c.type, c.file_name';
+    return exec.query(
+        `SELECT ${columns} FROM ${CONTENT_TABLE} c JOIN ${API_METADATA_TABLE} m ON c.api_uuid = m.uuid AND c.portal_id = m.portal_id
+         WHERE c.api_uuid = ? AND c.type IN (${wanted.map(() => '?').join(', ')}) AND m.org_uuid = ? AND m.portal_id = ?`,
+        [apiId, ...wanted, orgId, getPortalId()]
+    );
+};
+
 module.exports = {
     store,
+    listAgentDefinitions,
     storeMany,
     upsertMany,
     get,

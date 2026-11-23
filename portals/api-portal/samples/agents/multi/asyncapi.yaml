@@ -1,0 +1,36 @@
+asyncapi: 3.0.0
+info:
+  title: Accounts Payable Assistant events
+  version: 2.0.0
+  description: Publish new invoices; receive triage results without calling the agent.
+defaultContentType: application/json
+servers:
+  production: { host: 'kafka.acme-finance.com:9092', protocol: kafka }
+channels:
+  invoicesReceived:
+    address: invoices.received
+    description: New supplier invoices.
+    messages:
+      invoiceReceived:
+        name: InvoiceReceived
+        payload:
+          type: object
+          properties:
+            invoiceId: { type: string }
+            amount: { type: number }
+            purchaseOrder: { type: string }
+  invoicesTriaged:
+    address: invoices.triaged
+    description: The assistant's decision for each invoice.
+    messages:
+      invoiceTriaged:
+        name: InvoiceTriaged
+        payload:
+          type: object
+          properties:
+            invoiceId: { type: string }
+            decision: { type: string, enum: [APPROVE, HOLD] }
+            reasons: { type: array, items: { type: string } }
+operations:
+  takeInvoice: { action: receive, channel: { $ref: '#/channels/invoicesReceived' }, summary: Publish invoices here }
+  publishDecision: { action: send, channel: { $ref: '#/channels/invoicesTriaged' }, summary: Subscribe for decisions }

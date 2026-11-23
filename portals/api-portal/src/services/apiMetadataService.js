@@ -51,6 +51,7 @@ const billingConfigurationDao = require('../dao/billingConfigurationDao');
 const billingApiPlanDao = require('../dao/billingApiPlanDao');
 const userIdpReferenceDao = require("../dao/userIdpReferenceDao");
 const { logUserAction } = require('../middlewares/auditLogger');
+const agentIntake = require("./agentIntake");
 const { CustomError, ValidationError, NotFoundError, ConflictError } = require("../utils/errors/customErrors");
 const apiContentRules = require('../utils/apiContentRules');
 const LabelDTO = require("../dto/labelDto");
@@ -114,6 +115,11 @@ const createAPIMetadata = async (req, res) => {
                 throw new ValidationError("Missing or invalid fields in the request payload");
             }
             apiMetadata = JSON.parse(req.body.metadata);
+            if (req.__forceApiType === constants.API_TYPE.AGENT) {
+                // An agent's JSON metadata is the same kind: Agent document as agent.yaml,
+                // so every intake path runs one mapping and one rule set.
+                apiMetadata = agentIntake.mapAgentJsonMetadata(apiMetadata, mapArtifactYamlToApiMetadata);
+            }
             // Type is resolved centrally below, using this raw (possibly omitted) value —
             // don't resolve here, or an omitted type on a /mcp-servers request can no
             // longer be told apart from an explicit REST.
@@ -133,19 +139,28 @@ const createAPIMetadata = async (req, res) => {
         // plus a definition file).
         const isMcp = apiMetadata.type === constants.API_TYPE.MCP;
         const isGraphQL = apiMetadata.type === constants.API_TYPE.GRAPHQL;
-        if (definitionUpload && !fullApiBundle && !isMcp && !isGraphQL) {
+        const isAgent = apiMetadata.type === constants.API_TYPE.AGENT;
+        if (definitionUpload && !fullApiBundle && !isMcp && !isGraphQL && !isAgent) {
             const preparedDefinition = prepareApiDefinitionForStorage(definitionUpload.originalname, definitionUpload.buffer);
             apiDefinitionFile = preparedDefinition.apiDefinitionFile;
             apiFileName = preparedDefinition.apiDefinitionFileName;
         }
-        const hasGraphQLSchema = isGraphQL && (definitionUpload || fullApiBundle?.apiDefinitionFile);
-        const hasMcpSchema = isMcp &&
-            (definitionUpload || fullApiBundle?.schemaDefinitionFile);
-        const hasContract = isMcp ? hasMcpSchema : (apiDefinitionFile || hasGraphQLSchema);
-        if (!apiMetadata.name || !hasContract || !apiMetadata.endPoints) {
-            throw new ValidationError(
-                "Missing or Invalid fields in the request payload"
-            );
+        let agentPrepared = null;
+        if (isAgent) {
+            // The agent rules replace the generic "contract and endPoints required" check:
+            // definitions are per interface and optional, and LOCAL agents have no endpoint.
+            agentPrepared = agentIntake.prepareAgentArtifact(
+                apiMetadata, agentIntake.collectAgentUploads(req.files, fullApiBundle), null);
+        } else {
+            const hasGraphQLSchema = isGraphQL && (definitionUpload || fullApiBundle?.apiDefinitionFile);
+            const hasMcpSchema = isMcp &&
+                (definitionUpload || fullApiBundle?.schemaDefinitionFile);
+            const hasContract = isMcp ? hasMcpSchema : (apiDefinitionFile || hasGraphQLSchema);
+            if (!apiMetadata.name || !hasContract || !apiMetadata.endPoints) {
+                throw new ValidationError(
+                    "Missing or Invalid fields in the request payload"
+                );
+            }
         }
         const thumbnailChange = apiContentRules.readThumbnailChange(req.files, apiMetadata, true);
         apiContentRules.assertMarkdownDocParts(req.files);
@@ -224,6 +239,9 @@ const createAPIMetadata = async (req, res) => {
             // field; and for MCP, whose contract is its tools schema — an MCP has no apiDefinition)
             if (apiDefinitionFile && !isMcp) {
                 await apiFileDao.store(apiDefinitionFile, apiFileName, apiId, constants.DOC_TYPES.API_DEFINITION, userId, t);
+            }
+            if (isAgent) {
+                await agentIntake.storeAgentDefinitions(agentPrepared, apiId, orgId, userId, t);
             }
             // store uploaded documentation files
             if (req.files?.docs) {
@@ -385,6 +403,11 @@ function resolveTypeOrReject(rawType, forceType) {
             "MCP servers must be created via /api/v0.9/mcp-servers"
         );
     }
+    if (resolved === constants.API_TYPE.AGENT) {
+        throw new ValidationError(
+            "Agents must be created via /api/v0.9/agents"
+        );
+    }
     return resolved;
 }
 
@@ -536,6 +559,11 @@ const updateAPIMetadata = async (req, res) => {
                 throw new ValidationError("Missing or invalid fields in the request payload");
             }
             apiMetadata = JSON.parse(req.body.metadata);
+            if (req.__forceApiType === constants.API_TYPE.AGENT) {
+                // An agent's JSON metadata is the same kind: Agent document as agent.yaml,
+                // so every intake path runs one mapping and one rule set.
+                apiMetadata = agentIntake.mapAgentJsonMetadata(apiMetadata, mapArtifactYamlToApiMetadata);
+            }
             // Type is resolved centrally below, using this raw (possibly omitted) value —
             // don't resolve here, or an omitted type on a /mcp-servers request can no
             // longer be told apart from an explicit REST.
@@ -553,14 +581,42 @@ const updateAPIMetadata = async (req, res) => {
         // store one (not MCP, not GraphQL — those are handled by their branches below).
         const isMcp = apiMetadata.type === constants.API_TYPE.MCP;
         const isGraphQL = apiMetadata.type === constants.API_TYPE.GRAPHQL;
-        if (definitionUpload && !fullApiBundle && !isMcp && !isGraphQL) {
+        const isAgent = apiMetadata.type === constants.API_TYPE.AGENT;
+        if (definitionUpload && !fullApiBundle && !isMcp && !isGraphQL && !isAgent) {
             const preparedDefinition = prepareApiDefinitionForStorage(definitionUpload.originalname, definitionUpload.buffer);
             apiDefinitionFile = preparedDefinition.apiDefinitionFile;
             apiFileName = preparedDefinition.apiDefinitionFileName;
         }
 
-        // Validate input — spec file is optional on update (already stored from create)
-        if (!apiMetadata.name || !apiMetadata.endPoints) {
+        let agentPrepared = null;
+        if (isAgent) {
+            // Documents to remove travel beside the document (it has no field for them), in the
+            // `docsToRemove` form field: a JSON list whose entries are a file name or
+            // { fileName, type }, the two shapes removeDoc takes for APIs (the wizard sends the second).
+            if (req.body?.docsToRemove !== undefined) {
+                let entries;
+                try {
+                    entries = JSON.parse(req.body.docsToRemove);
+                } catch {
+                    entries = null;
+                }
+                const validName = (name) => typeof name === 'string' && name && name.length <= 255;
+                if (!Array.isArray(entries) || entries.some((entry) => !(validName(entry)
+                    || (entry && typeof entry === 'object' && validName(entry.fileName) && typeof entry.type === 'string')))) {
+                    throw new ValidationError("Field 'docsToRemove' must be a JSON list of document file names or { fileName, type } entries.");
+                }
+                apiMetadata.docsToRemove = entries;
+            }
+            // The document names the agent it describes; it can't rename or retarget it.
+            if (apiMetadata.handle !== undefined && existingRecord && apiMetadata.handle !== existingRecord.handle) {
+                throw new ValidationError("Field 'metadata.name' must match the agent being updated.");
+            }
+            // A named definition that isn't uploaded again keeps the stored file.
+            const existingAgent = await agentIntake.loadExistingAgentState(orgId, apiId);
+            agentPrepared = agentIntake.prepareAgentArtifact(
+                apiMetadata, agentIntake.collectAgentUploads(req.files, fullApiBundle), existingAgent);
+        } else if (!apiMetadata.name || !apiMetadata.endPoints) {
+            // Validate input — spec file is optional on update (already stored from create)
             throw new ValidationError(
                 "Missing or Invalid fields in the request payload"
             );
@@ -614,7 +670,7 @@ const updateAPIMetadata = async (req, res) => {
             }
             const kept = new Set(apiMetadata.subscriptionPlans.map((plan) => plan && plan.id));
             removedPlans = (await subscriptionPlanDao.listByApi(apiId)).filter((plan) => !kept.has(plan.handle));
-            await refuseSubscribedPlans(orgId, apiId, removedPlans);
+            await refuseSubscribedPlans(orgId, apiId, removedPlans, undefined, isAgent ? 'agent' : 'API');
         }
         // Paid plans the update newly enables are created with the billing provider before anything
         // is saved: when any part fails, what was created is removed and the update fails.
@@ -695,7 +751,7 @@ const updateAPIMetadata = async (req, res) => {
                     };
                 }
                 // Checked again with the plans locked: a subscription may have been made since the first check.
-                await refuseSubscribedPlans(orgId, apiId, removedPlans, t);
+                await refuseSubscribedPlans(orgId, apiId, removedPlans, t, isAgent ? 'agent' : 'API');
                 // Get subscription plan IDs and fail if any plan is not found
                 await subscriptionPlanDao.updateApiMapping(subscriptionPlans, apiId, userId, t);
                 await billingApiPlanDao.deleteApiPlans(orgId,
@@ -711,6 +767,9 @@ const updateAPIMetadata = async (req, res) => {
                 if (!updatedFileCount) {
                     throw new NotFoundError("No record found to update");
                 }
+            }
+            if (isAgent) {
+                await agentIntake.storeAgentDefinitions(agentPrepared, apiId, orgId, userId, t);
             }
             // remove docs the user deleted in the wizard
             if (Array.isArray(apiMetadata.docsToRemove)) {
@@ -832,11 +891,11 @@ const deleteAPIMetadata = async (req, res) => {
             }
             const subApis = await subDao.listByApi(orgId, apiId);
             if (subApis.length > 0) {
-                throw new CustomError(409, constants.ERROR_MESSAGE.ERR_SUB_EXIST, "API has subscriptions.");
+                throw new CustomError(409, constants.ERROR_MESSAGE.ERR_SUB_EXIST, `${kindNoun(req)} has subscriptions.`);
             }
             const activeKeys = await apiKeyDao.list(orgId, { apiId, status: 'ACTIVE' });
             if (activeKeys.length > 0) {
-                throw new CustomError(409, constants.ERROR_MESSAGE.ERR_KEY_EXIST, "API has active keys.");
+                throw new CustomError(409, constants.ERROR_MESSAGE.ERR_KEY_EXIST, `${kindNoun(req)} has active keys.`);
             }
             // Delete revoked/expired keys within the transaction before removing the API row
             await apiKeyDao.deleteByApi(orgId, apiId, t);
@@ -1827,7 +1886,7 @@ async function readContentZip(zipFile, orgId, apiId, kind) {
         const folders = (await fs.readdir(extractPath, { recursive: true, withFileTypes: true }))
             .filter((entry) => entry.isDirectory())
             .map((entry) => toZipPath(path.join(entry.parentPath, entry.name)));
-        const { items, metadataPath, definitionPath, rejected } =
+        const { items, metadataPath, definitionPath, agentFiles, rejected } =
             apiContentRules.classifyContentZip(extracted.map(toZipPath), kind, folders);
         if (rejected.length) {
             throw new ValidationError('Content ZIP has entries the portal does not accept',
@@ -1842,7 +1901,16 @@ async function readContentZip(zipFile, orgId, apiId, kind) {
             const encoding = item.type === constants.DOC_TYPES.API_LANDING ? constants.CHARSET_UTF8 : undefined;
             content.push({ fileName: item.fileName, content: await read(item.path, encoding), type: item.type });
         }
-        return { content, metadata: await readNamed(metadataPath), definition: await readNamed(definitionPath) };
+        const agentDefinitionFiles = [];
+        for (const agentFilePath of agentFiles || []) {
+            agentDefinitionFiles.push(await readNamed(agentFilePath));
+        }
+        return {
+            content,
+            metadata: await readNamed(metadataPath),
+            definition: await readNamed(definitionPath),
+            agentFiles: agentDefinitionFiles,
+        };
     } finally {
         await fs.rm(tempBasePath, { recursive: true, force: true });
         // Multer may have saved the upload to disk (zipFile.path).
@@ -1872,6 +1940,27 @@ async function extractApiContentFromUploadedZip(zipFile, orgId, apiId) {
     }
 }
 
+/*
+ * An agent ZIP carries its definition files at its root under fixed names, one per upload
+ * field (apiContentRules.AGENT_ZIP_FILES): agent-card.json (a2aDefinition), openapi.yaml|yml|json
+ * (restDefinition), asyncapi.yaml|yml|json (eventDefinition), run-locally.md (localDefinition).
+ * The ZIP rules reject any other top-level file; the agent validator decides whether each is
+ * allowed and complete.
+ */
+function readAgentDefinitionsFromZip(agentFiles) {
+    const files = {};
+    for (const [field, names] of Object.entries(apiContentRules.AGENT_ZIP_FILES)) {
+        const found = agentFiles.filter((file) => names.includes(file.fileName));
+        if (found.length > 1) {
+            throw new ValidationError(`The agent ZIP has more than one file for '${field}'. Keep one of ${names.join(', ')}.`);
+        }
+        if (found.length) {
+            files[field] = found[0];
+        }
+    }
+    return files;
+}
+
 async function extractFullApiBundleFromUploadedZip(zipFile, orgId, apiId) {
     if (!zipFile?.buffer) {
         throw new ValidationError("Missing required multipart file field: 'artifact'");
@@ -1882,12 +1971,19 @@ async function extractFullApiBundleFromUploadedZip(zipFile, orgId, apiId) {
     }
 
     try {
-        const { content, metadata, definition } =
+        const { content, metadata, definition, agentFiles } =
             await readContentZip(zipFile, orgId, apiId, apiContentRules.ZIP_KIND.ARTIFACT);
         if (!metadata) {
-            throw new ValidationError("Invalid full API zip: missing metadata.yaml, metadata.yml, api.yaml or mcp.yaml");
+            throw new ValidationError("Invalid full API zip: missing metadata.yaml, metadata.yml, api.yaml, mcp.yaml or agent.yaml");
         }
         const apiMetadata = parseApiMetadataFromYamlFile(metadata.fileName, metadata.buffer);
+        if (apiMetadata.type === constants.API_TYPE.AGENT) {
+            return {
+                apiMetadata,
+                content,
+                agentDefinitions: readAgentDefinitionsFromZip(agentFiles),
+            };
+        }
         const isMcp = apiMetadata.type === constants.API_TYPE.MCP;
         if (!definition) {
             throw new ValidationError(isMcp
@@ -1920,14 +2016,27 @@ function mapArtifactYamlToApiMetadata(parsedYaml) {
     }
     const metadata = parsedYaml.metadata || {};
     const spec = parsedYaml.spec || {};
-    const apiType = util.resolveApiType(spec.type);
+    const isAgent = parsedYaml.kind === constants.API_TYPE.AGENT;
+    if (isAgent && parsedYaml.apiVersion !== constants.AGENT_API_VERSION) {
+        throw new ValidationError("Field 'apiVersion' is invalid.");
+    }
+    if (isAgent && (typeof metadata !== 'object' || typeof spec !== 'object' || Array.isArray(spec))) {
+        throw new ValidationError("Field 'spec' is invalid.");
+    }
+    // For agents the stored type comes from `kind`; spec.types and the interfaces are
+    // validated by agentArtifactValidation.
+    const apiType = isAgent ? constants.API_TYPE.AGENT : util.resolveApiType(spec.type);
     // A missing status is left out: a create publishes the API, an update keeps its status.
     const apiStatus = spec.status;
-    if (apiStatus !== undefined && !Object.values(constants.API_STATUS).includes(apiStatus)) {
+    // An agent document's status and visibility are checked (with every other field) by
+    // the agent validator, which names the field without echoing the value.
+    if (!isAgent && apiStatus !== undefined && !Object.values(constants.API_STATUS).includes(apiStatus)) {
         throw new ValidationError(`Invalid API status '${apiStatus}'. Must be one of: ${Object.values(constants.API_STATUS).join(', ')}.`);
     }
-    const agentVisibility = (spec.agentVisibility || constants.AGENT_VISIBILITY.VISIBLE).toUpperCase();
-    if (!Object.values(constants.AGENT_VISIBILITY).includes(agentVisibility)) {
+    const agentVisibility = typeof spec.agentVisibility === 'string' && spec.agentVisibility.trim()
+        ? spec.agentVisibility.toUpperCase()
+        : constants.AGENT_VISIBILITY.VISIBLE;
+    if (!isAgent && !Object.values(constants.AGENT_VISIBILITY).includes(agentVisibility)) {
         throw new ValidationError(`Invalid agentVisibility '${spec.agentVisibility}'. Must be one of: ${Object.values(constants.AGENT_VISIBILITY).join(', ')}.`);
     }
     const endpoints = spec.endpoints || {};
@@ -1936,7 +2045,7 @@ function mapArtifactYamlToApiMetadata(parsedYaml) {
     const subscriptionPlans = util.normalizeStringArray(spec.subscriptionPlans)
         .map(planName => ({ id: planName }));
 
-    return {
+    const mapped = {
         name: spec.displayName,
         version: spec.version,
         description: spec.description,
@@ -1967,15 +2076,22 @@ function mapArtifactYamlToApiMetadata(parsedYaml) {
         },
         subscriptionPlans,
     };
+    if (isAgent) {
+        // The raw document parts, for the agent validator. Non-enumerable, so they never
+        // reach metadata_search or a response.
+        Object.defineProperty(mapped, 'agentSpec', { value: spec, enumerable: false });
+        Object.defineProperty(mapped, 'agentDocumentMetadata', { value: metadata, enumerable: false });
+    }
+    return mapped;
 }
 
 function parseApiMetadataFromYamlFile(fileName, fileBuffer) {
     const allowedMetadataFileNames = new Set([
         'metadata.yaml', 'metadata.yml', 'metadata.json',
-        'api.yaml', 'mcp.yaml',
+        'api.yaml', 'mcp.yaml', 'agent.yaml', 'agent.yml',
     ]);
     if (!allowedMetadataFileNames.has(String(fileName).toLowerCase())) {
-        throw new ValidationError("Invalid metadata file name. Expected 'metadata.yaml', 'metadata.yml', 'metadata.json', 'api.yaml' or 'mcp.yaml'");
+        throw new ValidationError("Invalid metadata file name. Expected 'metadata.yaml', 'metadata.yml', 'metadata.json', 'api.yaml', 'mcp.yaml' or 'agent.yaml'");
     }
 
     let parsedYaml;
@@ -2055,22 +2171,25 @@ async function endOpenCheckouts(orgId, which) {
  * Refuses (409 ERR_PLAN_SUB_EXIST) removing plans from an API while they have subscriptions to it: a plan stays on the
  * API until its subscriptions have ended. The Platform API turns the code into its own publish message.
  */
-async function refuseSubscribedPlans(orgId, apiId, plans, t) {
+async function refuseSubscribedPlans(orgId, apiId, plans, t, noun = 'API') {
     if (plans.length === 0) return;
     const counts = await subscriptionPlanDao.countApiSubscriptions(orgId, apiId, plans.map((plan) => plan.uuid), t);
     const subscribed = plans.filter((plan) => counts.has(plan.uuid)).map((plan) => plan.display_name || plan.handle);
     if (subscribed.length > 0) {
-        throw new CustomError(409, constants.ERROR_MESSAGE.ERR_PLAN_SUB_EXIST, planSubscribedMessage(subscribed));
+        throw new CustomError(409, constants.ERROR_MESSAGE.ERR_PLAN_SUB_EXIST, planSubscribedMessage(subscribed, noun));
     }
 }
 
+// "Agent" for an agent request (agentService.asAgentRequest), else "API" as before.
+const kindNoun = (req) => (req?.__forceApiType === constants.API_TYPE.AGENT ? 'Agent' : 'API');
+
 /** The refusal for removing plans (by name) from an API while they have subscriptions to it. */
-function planSubscribedMessage(names) {
+function planSubscribedMessage(names, noun = 'API') {
     if (names.length === 1) {
-        return `The plan ${names[0]} has subscriptions to this API, so it can't be removed from the API until they have ended.`;
+        return `The plan ${names[0]} has subscriptions to this ${noun}, so it can't be removed from the ${noun} until they have ended.`;
     }
-    return `The plans ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} have subscriptions to this API, `
-        + 'so they can\'t be removed from the API until those subscriptions have ended.';
+    return `The plans ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} have subscriptions to this ${noun}, `
+        + `so they can't be removed from the ${noun} until those subscriptions have ended.`;
 }
 
 /**
