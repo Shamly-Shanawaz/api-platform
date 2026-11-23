@@ -9,6 +9,8 @@ The API Portal is a self-hosted, multi-tenant web application where API publishe
 | [Introduction](introduction/what-is-api-portal.md) | Everyone | Overview, quick start, and core concepts |
 | [Administer](administer/manage-organizations.md) | Admins / Operators | The organization, views, subscription plans, gateway and key manager integration, theming, design mode, IDP authentication |
 | [Publish APIs](publish-apis/publishing-apis.md) | API Publishers / Admins | Registering APIs, uploading definitions and docs, managing API workflows |
+| [Publish agents](publish-apis/publishing-agents.md) | API Publishers / Admins | Onboarding agents (A2A, REST, event and run-it-yourself) with a `kind: Agent` document |
+| [Agents: known limitations](publish-apis/agents-known-limitations.md) | API Publishers / Admins | What agents in this release do and don't do (gateway, keys, discovery) |
 | [Discover APIs](discover-apis/search-apis.md) | Developers | Searching the API catalog, reading documentation, AI agent discovery |
 | [Consume an API](consume-an-api/subscriptions.md) | Developers | Subscribing to APIs, generating API keys and OAuth2 credentials |
 | [Manage Applications](manage-applications/create-an-application.md) | Developers | Creating and managing developer applications for OAuth2 credentials |

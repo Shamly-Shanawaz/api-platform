@@ -67,6 +67,10 @@ This deploys everything under `samples/` into the `default` organization through
 
 > Requires `curl`, `jq`, and `zip` on your `PATH`. The portal must be running (step 3). Set `API_PORTAL_URL` / `PLATFORM_API_URL` to override the defaults (`https://localhost:9543` / `https://localhost:9243`).
 
+The sample agents under `samples/agents/` are seeded only when agents are turned on: add `"agents"` to
+`[api_portal.artifacts] enabled_types` in your config and restart (see [Publishing agents](../publish-apis/publishing-agents.md)).
+With agents off, the script skips them.
+
 Refresh the catalog page and the sample APIs appear. To publish an API of your own instead, continue below.
 
 ### 6. Publish your first API
