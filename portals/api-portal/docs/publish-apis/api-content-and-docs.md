@@ -158,6 +158,12 @@ The Order API lets you create, retrieve, update, and cancel customer orders.
 - **Order tracking** — retrieve order status for customer-facing apps
 ```
 
+> **HTML in Markdown is cleaned.** Markdown landing pages and documentation pages are converted to HTML and then
+> passed through an allowlist sanitizer before they are shown. Headings, paragraphs, lists, code blocks, tables,
+> blockquotes, emphasis, links (`http`, `https`, `mailto`) and images (`http`, `https`, raster `data:` images) are
+> kept. Scripts, frames, forms, styles, `on*` event handlers, SVG and `javascript:` links are removed. Use a
+> Handlebars template (`api-content.hbs`) if a landing page needs custom HTML.
+
 ## Documentation Pages (`docs/`)
 
 Files placed in `docs/` appear as pages in the API's **Documentation** tab. Each Markdown (`.md`) file directly in `docs/` or in one category folder below it becomes a documentation page, following the [rules above](#content-zip-structure). The file name is used as the page title.

@@ -21,6 +21,7 @@ const { config } = require('../config/configLoader');
 const constants = require('../utils/constants');
 const { ownValue } = require('../utils/handlebarsUtils');
 const { typeLabel } = require('../keymanagers/core/registry');
+const { safeHref } = require('../utils/safeHref');
 
 const helpers = {
     // The portal's hardcoded URL prefix (constants.ROUTE.BASE_PATH). Every absolute
@@ -62,6 +63,8 @@ const helpers = {
 
     // URL helpers
     urlEncode: (value) => encodeURIComponent(value ?? ''),
+    // Publisher-supplied link: http(s)/mailto only, else '' (render as text)
+    safeHref: (value) => safeHref(value),
 
     // JSON helpers
     // Replace tags and line separators
