@@ -641,3 +641,104 @@ scenarios:
       refs:
         - feature: suites/it/features/apiportal/multi-organization/webhooks.feature
           scenario: "Webhooks and rows stay within their organization and portal_id"
+  - id: APIP-056
+    title: "Agent lifecycle: an agent is added in any intake form, its definition files follow every update, and it is listed and deleted"
+    priority: P0
+    ui:
+      status: automated
+      refs:
+        - feature: suites/ui/features/apiportal/agents.feature
+          scenario: "Journey: an administrator adds, edits, deprecates and deletes agents in Settings → Agents"
+    it:
+      status: automated
+      refs:
+        - feature: suites/it/features/apiportal/agents/agents.feature
+          scenario: "A publisher adds a <shape> agent from <form>, and it reads back with its ways of use"
+        - feature: suites/it/features/apiportal/agents/agents.feature
+          scenario: "An agent's definition files are stored byte for byte, follow every update, and go with the agent"
+        - feature: suites/it/features/apiportal/agents/agents.feature
+          scenario: "An agent's document round-trips unchanged, and the card fills in what the document leaves out"
+        - feature: suites/it/features/apiportal/agents/agents.feature
+          scenario: "Agents are listed as lightweight items, filtered by way of use and protocol, and shown on Settings → Agents"
+        - feature: suites/it/features/apiportal/agents/agents.feature
+          scenario: "Documents named in docsToRemove are removed when an agent is updated"
+  - id: APIP-057
+    title: "Agent refusals: an invalid agent document is refused with every problem named and stores nothing, agents and APIs never resolve through each other, and only agent scopes reach /agents"
+    priority: P0
+    ui:
+      status: automated
+      refs:
+        - feature: suites/ui/features/apiportal/agents.feature
+          scenario: "Journey: an administrator adds, edits, deprecates and deletes agents in Settings → Agents"
+    it:
+      status: automated
+      refs:
+        - feature: suites/it/features/apiportal/agents/agents.feature
+          scenario: "Invalid agent documents are refused with every problem named, and store nothing"
+        - feature: suites/it/features/apiportal/agents/agents.feature
+          scenario: "Agents and APIs never resolve through each other's endpoints, and only agent scopes reach /agents"
+  - id: APIP-058
+    title: "Agent catalogue: the listing filters and searches agents, and an agent page shows how to use it with its publisher content inert"
+    priority: P0
+    ui:
+      status: automated
+      refs:
+        - feature: suites/ui/features/apiportal/agents.feature
+          scenario: "Journey: a developer finds agents, filters and searches them, and reads how to use one"
+    it:
+      status: automated
+      refs:
+        - feature: suites/it/features/apiportal/agents/agent_pages.feature
+          scenario: "The agent listing shows each agent with its ways of use, and filters and searches them"
+        - feature: suites/it/features/apiportal/agents/agent_pages.feature
+          scenario: "An agent page shows how to use the agent, one tab per way of use, with its publisher content inert"
+        - feature: suites/it/features/apiportal/agents/agent_pages.feature
+          scenario: "An agent's landing page, icon, documents and views follow what its publisher uploads"
+  - id: APIP-059
+    title: "Agents for AI clients: Markdown views, llms.txt, the stored Agent Card and the ARD manifest list visible agents only"
+    priority: P1
+    ui:
+      status: exempt
+      reason: Markdown views, llms.txt, the Agent Card and the ARD manifest are documents for AI clients; the portal UI only links to them.
+    it:
+      status: automated
+      refs:
+        - feature: suites/it/features/apiportal/agents/agent_pages.feature
+          scenario: "AI clients read agents as Markdown, in llms.txt, as stored cards and in the ARD manifest, but never hidden ones"
+  - id: APIP-060
+    title: "Agent subscriptions and API keys: an agent with plans takes subscriptions and keys, one in use cannot be deleted, and one without plans offers neither"
+    priority: P0
+    ui:
+      status: planned
+    it:
+      status: automated
+      refs:
+        - feature: suites/it/features/apiportal/agents/agent_consumption.feature
+          scenario: "A developer subscribes to an agent with plans and its keys are issued once, and an agent in use cannot be deleted"
+        - feature: suites/it/features/apiportal/agents/agent_consumption.feature
+          scenario: "An agent page offers its plans, credentials and keys page"
+        - feature: suites/it/features/apiportal/agents/agent_consumption.feature
+          scenario: "A <shape> agent without plans offers no keys and no subscriptions"
+        - feature: suites/it/features/apiportal/agents/agent_consumption.feature
+          scenario: "A deprecated agent is marked Deprecated and still takes subscriptions and keys"
+  - id: APIP-061
+    title: "AI agent keys: a ThunderID key manager with an agent endpoint creates, rotates, links and deletes agent keys, and refuses them elsewhere"
+    priority: P0
+    ui:
+      status: automated
+      refs:
+        - feature: suites/ui/features/apiportal/agents.feature
+          scenario: "Journey: an administrator offers agent keys on a key manager, and a developer finds them on the Agent Keys page"
+    it:
+      status: automated
+      refs:
+        - feature: suites/it/features/apiportal/agents/agent_keys.feature
+          scenario: "A developer creates an agent key, gets tokens with its secret, rotates it and deletes it"
+        - feature: suites/it/features/apiportal/agents/agent_keys.feature
+          scenario: "An agent key acts for users with the grants chosen, and reads them back"
+        - feature: suites/it/features/apiportal/agents/agent_keys.feature
+          scenario: "Agent keys are refused on a key manager without an agent endpoint, for a bad or taken name and for extra settings"
+        - feature: suites/it/features/apiportal/agents/agent_keys.feature
+          scenario: "An agent made outside the portal is linked by its client ID, gets tokens, and is only unlinked"
+        - feature: suites/it/features/apiportal/agents/agent_keys.feature
+          scenario: "Only agent keys have their secret rotated"

@@ -14,8 +14,8 @@ A2A_TRIP_PLANNER_IMAGE ?= ghcr.io/wso2/api-platform/a2a-trip-planner:test
 # step with the block files (CLAUDE.md, "Integration Suite Blocks"): every block of
 # suites/it/blocks/api-portal.yaml, and every api-portal-* block of suites/ui/ui-suite.yaml.
 # A block missing here is not run at release.
-API_PORTAL_IT_BLOCKS ?= api-portal-core,api-portal-webhooks,api-portal-auth-scope,api-portal-auth-role,api-portal-grant-table,api-portal-multi-organization,api-portal-foreign-org,api-portal-billing
-API_PORTAL_UI_BLOCKS ?= api-portal-core,api-portal-key-manager,api-portal-billing
+API_PORTAL_IT_BLOCKS ?= api-portal-core,api-portal-agents,api-portal-webhooks,api-portal-auth-scope,api-portal-auth-role,api-portal-grant-table,api-portal-multi-organization,api-portal-foreign-org,api-portal-billing
+API_PORTAL_UI_BLOCKS ?= api-portal-core,api-portal-agents,api-portal-key-manager,api-portal-billing
 
 help: ## Show available targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*##' '{printf "  %-12s %s\n", $$1, $$2}'

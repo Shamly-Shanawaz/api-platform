@@ -477,6 +477,7 @@ func registerUIDeleters(reg *cleanup.Registry, topo *frameworkruntime.Topology) 
 	portalAuth := &apiPortalAuth{topo: topo, client: portalClient, cookies: map[string]string{}}
 	reg.RegisterDeleter(apiportalsteps.KindAPIPortalAPI, portalAPIDeleter(portalAuth, "apis"))
 	reg.RegisterDeleter(apiportalsteps.KindAPIPortalMCP, portalAPIDeleter(portalAuth, "mcp-servers"))
+	reg.RegisterDeleter(apiportalsteps.KindAPIPortalAgent, portalAPIDeleter(portalAuth, "agents"))
 	developerAuth := &apiPortalAuth{topo: topo, client: portalClient, cookies: map[string]string{}, user: actor.Developer()}
 	byActor := map[string]*apiPortalAuth{actor.Developer().Username: developerAuth}
 	reg.RegisterDeleter(apiportalsteps.KindAPIPortalApplication, portalDeleterAsActor(byActor, portalAuth,

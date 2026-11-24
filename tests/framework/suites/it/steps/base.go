@@ -236,7 +236,7 @@ func (b *Base) registerBaseSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^the response body should be:$`, b.responseBodyIs)
 	sc.Step(`^the response body should contain "([^"]*)"$`, b.responseContains)
 	sc.Step(`^the response body should not contain "([^"]*)"$`, b.responseNotContains)
-	sc.Step(`^the response body should match pattern "([^"]*)"$`, b.responseMatchesPattern)
+	sc.Step(`^the response body should (match|not match) pattern "([^"]*)"$`, b.responseMatchesPattern)
 	sc.Step(`^the response should have arrived within (\d+(?:\.\d+)?) seconds$`, b.responseArrivedWithin)
 	sc.Step(`^the response should contain Prometheus metrics$`, b.responseContainsPrometheusMetrics)
 	sc.Step(`^the response should contain metric "([^"]*)"$`, b.responseContainsMetric)
@@ -1097,13 +1097,14 @@ func (b *Base) jsonFieldIsNull(ctx context.Context, field string) error {
 	return nil
 }
 
-// responseMatchesPattern asserts the body matches a regular expression.
-//
-// Kept for SET MEMBERSHIP, which no other step expresses: the failover scenarios assert the
-// request landed on one of several backups, and which one is genuinely non-deterministic. A
-// prefix substring would accept any name sharing the stem, so it is weaker, not equivalent.
-func (b *Base) responseMatchesPattern(ctx context.Context, pattern string) error {
+// responseMatchesPattern asserts the body matches, or does not match, a regular expression. Context
+// values in the pattern are expanded before it is compiled.
+func (b *Base) responseMatchesPattern(ctx context.Context, mode, pattern string) error {
 	resp, err := httpx.Published(ctx)
+	if err != nil {
+		return err
+	}
+	pattern, err = stepscommon.Expand(ctx, pattern)
 	if err != nil {
 		return err
 	}
@@ -1111,8 +1112,12 @@ func (b *Base) responseMatchesPattern(ctx context.Context, pattern string) error
 	if err != nil {
 		return fmt.Errorf("the expected pattern %q is not a valid regular expression: %w", pattern, err)
 	}
-	if !re.MatchString(resp.Text()) {
+	matched := re.MatchString(resp.Text())
+	if mode == "match" && !matched {
 		return fmt.Errorf("expected the body to match %q, got %s", pattern, resp.Describe())
+	}
+	if mode == "not match" && matched {
+		return fmt.Errorf("expected the body NOT to match %q, got %s", pattern, resp.Describe())
 	}
 	return nil
 }

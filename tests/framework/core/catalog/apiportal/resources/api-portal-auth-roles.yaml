@@ -61,6 +61,17 @@ roles:
       - dp:mcp_server_key:update
       - dp:mcp_server_key:manage
       - dp:mcp_server_key:revoke
+      - dp:agent:read
+      - dp:agent:create
+      - dp:agent:update
+      - dp:agent:delete
+      - dp:agent:manage
+      - dp:agent_content:manage
+      - dp:agent_key:create
+      - dp:agent_key:read
+      - dp:agent_key:update
+      - dp:agent_key:manage
+      - dp:agent_key:revoke
       - dp:application:create
       - dp:application:read
       - dp:application:update
@@ -128,6 +139,10 @@ roles:
       - dp:view:manage
       - dp:api_key:manage
       - dp:mcp_server_key:manage
+      - dp:agent:manage
+      - dp:agent_content:manage
+      - dp:agent_key:manage
+      - dp:agent_key:read
       - dp:organization:read
       - dp:organization_content:read
       - dp:application:read
@@ -144,6 +159,12 @@ roles:
       - dp:api_content:read
       - dp:mcp_server:read
       - dp:mcp_server_content:read
+      - dp:agent:read
+      - dp:agent_key:create
+      - dp:agent_key:read
+      - dp:agent_key:update
+      - dp:agent_key:manage
+      - dp:agent_key:revoke
       - dp:api_key:create
       - dp:api_key:read
       - dp:api_key:update

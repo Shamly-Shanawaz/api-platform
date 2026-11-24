@@ -422,6 +422,7 @@ func TestCanonicalResourceTemplates(t *testing.T) {
 	// apiVersion, kind, metadata and spec resource envelope.
 	gatewayKinds := map[string]string{
 		"agent.yaml":                   "Agent",
+		"api-portal-agent.yaml":        "Agent",
 		"api-portal-organization.yaml": "Organization",
 		"graphql-api.yaml":             "GraphQLApi",
 		"llm-provider-template.yaml":   "LlmProviderTemplate",

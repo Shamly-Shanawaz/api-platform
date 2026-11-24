@@ -16,7 +16,8 @@
  */
 
 // Package oauth2 provides the partitioned OAuth2 identity provider used by
-// gateway tests. client_credentials and password grants issue an opaque
+// gateway and API Portal tests. It also answers ThunderID's agent API
+// (/agents), whose agents' clients get tokens here. client_credentials and password grants issue an opaque
 // "mock-token-N-issued-TS" string; token-exchange and jwt-bearer instead
 // issue a real RS256-signed JWT, verifiable against this service's own
 // GET /jwks.
@@ -107,6 +108,11 @@ type partition struct {
 	sequence    int
 	failCounter int
 	history     []tokenRequest
+
+	// agents, agentSequence and agentRequests hold the ThunderID agent API mock's state.
+	agents        map[string]*agent
+	agentSequence int
+	agentRequests []agentRequest
 }
 
 // Service implements testbench.Service and testbench.Partitioned.
@@ -150,6 +156,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("GET /debug/stats", s.stats)
 	mux.HandleFunc("POST /debug/reset", s.reset)
 	mux.HandleFunc("GET /healthz", health)
+	s.registerAgentRoutes(mux)
 	return testbench.NormalizeMethod(testbench.PartitionRouter(mux))
 }
 
@@ -294,7 +301,7 @@ func (s *Service) token(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"token_type": "Bearer", "expires_in": defaultTTL})
 		return
 	}
-	if id != clientID || secret != clientSecret {
+	if (id != clientID || secret != clientSecret) && !(grant == "client_credentials" && p.agentClient(id, secret)) {
 		rec.Outcome = "invalid_client"
 		s.record(p, rec)
 		writeUnauthorized(w)
@@ -494,6 +501,7 @@ func (s *Service) reset(w http.ResponseWriter, r *http.Request) {
 	}
 	p.mu.Lock()
 	p.sequence, p.failCounter, p.history = 0, 0, nil
+	p.agents, p.agentSequence, p.agentRequests = nil, 0, nil
 	p.mu.Unlock()
 	w.WriteHeader(http.StatusNoContent)
 }

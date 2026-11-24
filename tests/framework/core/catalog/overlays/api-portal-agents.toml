@@ -1,0 +1,4 @@
+# Serve agents (kind: Agent) next to the default artifact types. Agents are opt-in, so only the
+# blocks that check them enable the type.
+[api_portal.artifacts]
+enabled_types = ["apis", "mcp-servers", "api-workflows", "agents"]

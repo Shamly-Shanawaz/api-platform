@@ -1,0 +1,11 @@
+apiVersion: api-portal.api-platform.wso2.com/v1alpha1
+kind: Agent
+metadata:
+  name: ${VALUE:name}
+spec:
+  displayName: ${VALUE:displayName}
+  version: v1.0
+  description: An agent for the integration tests.
+  status: PUBLISHED
+  tags: [agents-it]
+  types: ${VALUE:types}

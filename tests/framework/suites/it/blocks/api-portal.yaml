@@ -124,6 +124,33 @@ blocks:
         features:
           - features/apiportal/applications/oauth2_keys.feature
 
+  # Agents are an opt-in artifact type (artifacts.enabled_types, api-portal-agents.toml). The
+  # other runners check the portal with its default artifact types, whose navigation, llms.txt and
+  # discovery documents agents change, so the setting stays in a block of its own.
+  - name: api-portal-agents
+    parallel: 4
+    components:
+      - name: platform-api
+        db: postgres
+      - name: api-portal
+        db: postgres
+        dependsOn: [platform-api]
+        overlay: tests/framework/core/catalog/overlays/api-portal-agents.toml
+      - name: testbench
+    runners:
+      - name: agents
+        features:
+          - features/apiportal/agents/agents.feature
+      - name: agent-pages
+        features:
+          - features/apiportal/agents/agent_pages.feature
+      - name: agent-consumption
+        features:
+          - features/apiportal/agents/agent_consumption.feature
+      - name: agent-keys
+        features:
+          - features/apiportal/agents/agent_keys.feature
+
   # Webhook subscribers are organization-wide. Keep their intentionally failing
   # delivery targets isolated from every other API Portal runner.
   - name: api-portal-webhooks

@@ -301,6 +301,7 @@ func TestCanonicalResourceTemplates(t *testing.T) {
 	// apiVersion, kind, metadata and spec resource envelope.
 	gatewayKinds := map[string]string{
 		"agent.yaml":                   "Agent",
+		"api-portal-agent.yaml":        "Agent",
 		"api-portal-organization.yaml": "Organization",
 		"graphql-api.yaml":             "GraphQLApi",
 		"llm-provider-template.yaml":   "LlmProviderTemplate",
@@ -1217,4 +1218,19 @@ func TestHealthFunnelTrustsEachComponentsCertificate(t *testing.T) {
 		require.Same(t, suite.funnel, suite.healthFunnel(component), component)
 	}
 	require.NotSame(t, suite.funnel, suite.portalFunnel)
+}
+
+func TestResponseBodyPatternSteps(t *testing.T) {
+	base := &Base{}
+	ctx := tcontext.WithLocal(context.Background(), tcontext.NewLocal("runner"))
+	require.NoError(t, tcontext.Set(ctx, httpx.ResponseKey, &httpx.Response{Body: []byte(`<a id="card-a">A</a><a id="card-b">B</a>`)}))
+	require.NoError(t, tcontext.Set(ctx, "first", "card-a"))
+
+	require.NoError(t, base.responseMatchesPattern(ctx, "match", `(?s)${CTX:first}.*card-b`))
+	require.Error(t, base.responseMatchesPattern(ctx, "match", `(?s)card-b.*${CTX:first}`))
+	require.NoError(t, base.responseMatchesPattern(ctx, "not match", `id=.card-c.`))
+	require.Error(t, base.responseMatchesPattern(ctx, "not match", `id=.${CTX:first}.`))
+	require.Error(t, base.responseMatchesPattern(ctx, "match", `[`))
+	require.Error(t, base.responseMatchesPattern(ctx, "match", `${CTX:missing}`))
+	require.Error(t, base.responseMatchesPattern(context.Background(), "match", `card`))
 }

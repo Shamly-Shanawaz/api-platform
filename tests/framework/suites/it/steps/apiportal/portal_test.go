@@ -38,6 +38,8 @@ import (
 	"encoding/pem"
 	"io"
 	"log/slog"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1514,4 +1516,74 @@ func TestAssertWebhookDeliveryEnvelopesRefusesMissingInput(t *testing.T) {
 	s := &Steps{}
 	require.ErrorContains(t, s.assertWebhookDeliveryEnvelopes(ctx, " ", 1), "requires a marker")
 	require.ErrorContains(t, s.assertWebhookDeliveryEnvelopes(ctx, "app-1", 0), "positive count")
+}
+
+func TestAgentDefinitions(t *testing.T) {
+	ctx := context.Background()
+	for _, empty := range []string{"", "  ", "none", "NONE"} {
+		files, err := agentDefinitions(ctx, empty)
+		require.NoError(t, err)
+		require.Empty(t, files)
+	}
+	files, err := agentDefinitions(ctx, "a2aDefinition=card, localDefinition=run locally, definition=card")
+	require.NoError(t, err)
+	require.Equal(t, []agentFile{
+		{field: "a2aDefinition", name: "agent-card.json", content: agentFiles["card"]},
+		{field: "localDefinition", name: "run-locally.md", content: agentFiles["run locally"]},
+		{field: "definition", name: "definition.txt", content: agentFiles["card"]},
+	}, files)
+	for _, bad := range []string{"card", "=card", "a2aDefinition=", "a2aDefinition=unknown"} {
+		_, err := agentDefinitions(ctx, bad)
+		require.Error(t, err, bad)
+	}
+}
+
+func TestAgentMultipart(t *testing.T) {
+	document := map[string]any{"apiVersion": "v", "kind": "Agent", "metadata": map[string]any{"name": "a"}}
+	files := []agentFile{{field: "localDefinition", name: "run-locally.md", content: "# Run"}}
+	parts := func(body []byte, contentType string) map[string]string {
+		t.Helper()
+		_, params, err := mime.ParseMediaType(contentType)
+		require.NoError(t, err)
+		reader := multipart.NewReader(bytes.NewReader(body), params["boundary"])
+		found := map[string]string{}
+		for {
+			part, err := reader.NextPart()
+			if err == io.EOF {
+				return found
+			}
+			require.NoError(t, err)
+			data, err := io.ReadAll(part)
+			require.NoError(t, err)
+			found[part.FormName()] = string(data)
+		}
+	}
+
+	body, contentType, err := agentMultipart("JSON", document, files, map[string]string{"docsToRemove": `["x.md"]`})
+	require.NoError(t, err)
+	got := parts(body, contentType)
+	require.JSONEq(t, `{"apiVersion":"v","kind":"Agent","metadata":{"name":"a"}}`, got["metadata"])
+	require.Equal(t, "# Run", got["localDefinition"])
+	require.Equal(t, `["x.md"]`, got["docsToRemove"])
+
+	body, contentType, err = agentMultipart("yaml", document, files, nil)
+	require.NoError(t, err)
+	got = parts(body, contentType)
+	require.Contains(t, got["metadata"], "kind: Agent")
+	require.Equal(t, "# Run", got["localDefinition"])
+
+	body, contentType, err = agentMultipart("ZIP", document, files, nil)
+	require.NoError(t, err)
+	got = parts(body, contentType)
+	require.NotContains(t, got, "localDefinition")
+	archive, err := zip.NewReader(bytes.NewReader([]byte(got["artifact"])), int64(len(got["artifact"])))
+	require.NoError(t, err)
+	names := []string{}
+	for _, entry := range archive.File {
+		names = append(names, entry.Name)
+	}
+	require.ElementsMatch(t, []string{"agent.yaml", "docs/overview.md", "run-locally.md"}, names)
+
+	_, _, err = agentMultipart("XML", document, files, nil)
+	require.Error(t, err)
 }

@@ -492,3 +492,154 @@ func TestJWKSEndpointServesTheSigningKeysPublicHalf(t *testing.T) {
 		}
 	}
 }
+
+// agentAPICall sends one agent API request in partition block-a with the given bearer token.
+func agentAPICall(t *testing.T, h http.Handler, method, path, token, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(method, "/block-a"+path, strings.NewReader(body))
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(recorder, req)
+	return recorder
+}
+
+// issuedToken gets a provisioning token for the fixed client in partition block-a.
+func issuedToken(t *testing.T, h http.Handler) string {
+	t.Helper()
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/block-a/oauth2/token", strings.NewReader("grant_type=client_credentials"))
+	req.SetBasicAuth(clientID, clientSecret)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(recorder, req)
+	var body struct {
+		Token string `json:"access_token"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil || body.Token == "" {
+		t.Fatalf("token response = %d %q", recorder.Code, recorder.Body.String())
+	}
+	return body.Token
+}
+
+func TestAgentAPICreatesReadsReplacesAndDeletesAgents(t *testing.T) {
+	s, err := New()
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	h := s.Handler()
+	token := issuedToken(t, h)
+
+	if got := agentAPICall(t, h, http.MethodPost, "/agents", "", `{"type":"default","attributes":{"name":"bot"}}`); got.Code != http.StatusUnauthorized {
+		t.Fatalf("create without a token = %d, want 401", got.Code)
+	}
+	if got := agentAPICall(t, h, http.MethodPost, "/agents", "forged", `{"type":"default","attributes":{"name":"bot"}}`); got.Code != http.StatusUnauthorized {
+		t.Fatalf("create with a token this service did not issue = %d, want 401", got.Code)
+	}
+	if got := agentAPICall(t, h, http.MethodPost, "/agents", token, `{"type":"other","attributes":{"name":"bot"}}`); got.Code != http.StatusBadRequest {
+		t.Fatalf("create with another type = %d, want 400", got.Code)
+	}
+	if got := agentAPICall(t, h, http.MethodPost, "/agents", token, `{"type":"default","attributes":{}}`); got.Code != http.StatusBadRequest {
+		t.Fatalf("create without a name = %d, want 400", got.Code)
+	}
+	if got := agentAPICall(t, h, http.MethodPost, "/agents", token, `not json`); got.Code != http.StatusBadRequest {
+		t.Fatalf("create with a malformed body = %d, want 400", got.Code)
+	}
+
+	created := agentAPICall(t, h, http.MethodPost, "/agents", token,
+		`{"type":"default","attributes":{"name":"bot"},"inboundAuthConfig":[{"type":"oauth2","config":{"grantTypes":["client_credentials"]}}]}`)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create = %d %q", created.Code, created.Body.String())
+	}
+	var view struct {
+		ID                string `json:"id"`
+		ClientID          string `json:"clientId"`
+		InboundAuthConfig []struct {
+			Config struct {
+				ClientID     string `json:"clientId"`
+				ClientSecret string `json:"clientSecret"`
+			} `json:"config"`
+		} `json:"inboundAuthConfig"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode create: %v", err)
+	}
+	config := view.InboundAuthConfig[0].Config
+	if view.ID != "agent-1" || config.ClientID != "agent-client-1" || !strings.HasPrefix(config.ClientSecret, "agent-secret-1-") {
+		t.Fatalf("created agent = %+v", view)
+	}
+	if got := agentAPICall(t, h, http.MethodPost, "/agents", token, `{"type":"default","attributes":{"name":"bot"}}`); got.Code != http.StatusConflict {
+		t.Fatalf("create with a taken name = %d, want 409", got.Code)
+	}
+
+	read := agentAPICall(t, h, http.MethodGet, "/agents/agent-1", token, "")
+	if read.Code != http.StatusOK || strings.Contains(read.Body.String(), config.ClientSecret) {
+		t.Fatalf("read = %d %q, want 200 without the secret", read.Code, read.Body.String())
+	}
+	if got := agentAPICall(t, h, http.MethodGet, "/agents/agent-9", token, ""); got.Code != http.StatusNotFound {
+		t.Fatalf("read of an unknown agent = %d, want 404", got.Code)
+	}
+
+	clientToken := func(secret string) int {
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/block-a/oauth2/token", strings.NewReader("grant_type=client_credentials"))
+		req.SetBasicAuth(config.ClientID, secret)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		h.ServeHTTP(recorder, req)
+		return recorder.Code
+	}
+	if code := clientToken(config.ClientSecret); code != http.StatusOK {
+		t.Fatalf("agent client token = %d, want 200", code)
+	}
+
+	if got := agentAPICall(t, h, http.MethodPut, "/agents/agent-1", token,
+		`{"attributes":{"name":"bot"},"inboundAuthConfig":[{"type":"oauth2","config":{"clientId":"other"}}]}`); got.Code != http.StatusBadRequest {
+		t.Fatalf("replace with another client id = %d, want 400", got.Code)
+	}
+	replaced := agentAPICall(t, h, http.MethodPut, "/agents/agent-1", token,
+		`{"attributes":{"name":"bot"},"inboundAuthConfig":[{"type":"oauth2","config":{"clientId":"agent-client-1","clientSecret":"rotated","grantTypes":["client_credentials"]}}]}`)
+	if replaced.Code != http.StatusOK {
+		t.Fatalf("replace = %d %q", replaced.Code, replaced.Body.String())
+	}
+	if code := clientToken(config.ClientSecret); code != http.StatusUnauthorized {
+		t.Fatalf("token with the replaced secret = %d, want 401", code)
+	}
+	if code := clientToken("rotated"); code != http.StatusOK {
+		t.Fatalf("token with the new secret = %d, want 200", code)
+	}
+
+	listing := httptest.NewRecorder()
+	h.ServeHTTP(listing, httptest.NewRequest(http.MethodGet, "/block-a/debug/agents", nil))
+	if !strings.Contains(listing.Body.String(), `"id":"agent-1"`) || strings.Contains(listing.Body.String(), "rotated") {
+		t.Fatalf("debug listing = %q", listing.Body.String())
+	}
+	other := httptest.NewRecorder()
+	h.ServeHTTP(other, httptest.NewRequest(http.MethodGet, "/block-b/debug/agents", nil))
+	if strings.Contains(other.Body.String(), "agent-1") {
+		t.Fatalf("another partition sees the agent: %q", other.Body.String())
+	}
+
+	if got := agentAPICall(t, h, http.MethodDelete, "/agents/agent-1", token, ""); got.Code != http.StatusNoContent {
+		t.Fatalf("delete = %d, want 204", got.Code)
+	}
+	if got := agentAPICall(t, h, http.MethodDelete, "/agents/agent-1", token, ""); got.Code != http.StatusNotFound {
+		t.Fatalf("second delete = %d, want 404", got.Code)
+	}
+	if code := clientToken("rotated"); code != http.StatusUnauthorized {
+		t.Fatalf("token of a deleted agent = %d, want 401", code)
+	}
+}
+
+func TestAgentAPIRejectsOversizedBodies(t *testing.T) {
+	s, err := New()
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	h := s.Handler()
+	token := issuedToken(t, h)
+	body := `{"type":"default","attributes":{"name":"` + strings.Repeat("a", maxBodyBytes) + `"}}`
+	if got := agentAPICall(t, h, http.MethodPost, "/agents", token, body); got.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized create = %d, want 413", got.Code)
+	}
+}

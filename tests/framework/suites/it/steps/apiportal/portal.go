@@ -273,7 +273,7 @@ func Register(
 		s.uploadAPIContent)
 	sc.Step(`^I upload API Portal content "([^"]*)" for API "([^"]*)" as "([^"]*)"$`,
 		s.uploadAPIContentVariant)
-	sc.Step(`^I (POST|PUT) API Portal content "([^"]*)" for MCP server "([^"]*)" as "([^"]*)"$`,
+	sc.Step(`^I (POST|PUT) API Portal content "([^"]*)" for (MCP server|agent) "([^"]*)" as "([^"]*)"$`,
 		s.uploadMCPContentMethodVariant)
 	sc.Step(`^I send an API Portal session "([^"]*)" request to "([^"]*)" as "([^"]*)" with JSON values:$`,
 		s.sendCSRFSessionRequestWithValues)
@@ -291,7 +291,7 @@ func Register(
 		s.createAPIKey)
 	sc.Step(`^a "([^"]*)" API key for API "([^"]*)" is generated and stored as "([^"]*)"$`,
 		s.createAPIKeyAs)
-	sc.Step(`^a publisher API key for MCP server "([^"]*)" is generated and stored as "([^"]*)"$`,
+	sc.Step(`^a publisher API key for (MCP server|agent) "([^"]*)" is generated and stored as "([^"]*)"$`,
 		s.createMCPKey)
 	sc.Step(`^the subscription plan "([^"]*)" is synced to the API Portal$`, s.syncSubscriptionPlan)
 	sc.Step(`^the "([^"]*)" API is published to the API Portal offering plan "([^"]*)"$`, s.publishAPI)
@@ -316,6 +316,7 @@ func Register(
 	sc.Step(`^the subscription "([^"]*)" status is set to "([^"]*)" in the API Portal$`, s.setSubscriptionStatus)
 	sc.Step(`^the subscription "([^"]*)" is removed in the API Portal$`, s.removeSubscription)
 	s.registerAPITemplateSteps(sc)
+	s.registerAgentSteps(sc)
 	s.registerMultiOrganizationSteps(sc)
 	s.registerBillingSteps(sc)
 	s.registerSecuritySteps(sc)
@@ -2452,8 +2453,14 @@ func (s *Steps) uploadAPIContentMethodVariant(ctx context.Context, method, varia
 	return s.uploadAPIContentRequest(ctx, strings.ToUpper(method), variant, "/apis", apiID, role)
 }
 
-func (s *Steps) uploadMCPContentMethodVariant(ctx context.Context, method, variant, mcpID, role string) error {
-	return s.uploadAPIContentRequest(ctx, strings.ToUpper(method), variant, "/mcp-servers", mcpID, role)
+// uploadMCPContentMethodVariant sends a content archive to an MCP server (/mcp-servers) or an
+// agent (/agents).
+func (s *Steps) uploadMCPContentMethodVariant(ctx context.Context, method, variant, kind, artifactID, role string) error {
+	collection := "/mcp-servers"
+	if kind == "agent" {
+		collection = "/agents"
+	}
+	return s.uploadAPIContentRequest(ctx, strings.ToUpper(method), variant, collection, artifactID, role)
 }
 
 // uploadAPIContentRequest sends a content archive to the assets endpoint of an API (/apis) or an
@@ -2526,6 +2533,8 @@ const (
 //	skips                     default plus a nested web/nested/deep.md and an unsupported web/run.sh
 //	no-content-dirs           only bundle/readme.txt, with neither web/ nor docs/
 //	replace-and-add           the alternate icon and docs/HowTo/extra.md, without the landing page
+//	agent-landing             only web/api-content.md, a Markdown landing page holding a script
+//	guide                     only docs/Guide.md
 //	near-limit, oversized     default plus a stored web/large.png just under or just over the upload limit
 func contentZip(variant string) ([]byte, error) {
 	icon, err := hex.DecodeString(contentIconPNG)
@@ -2561,6 +2570,10 @@ func contentZip(variant string) ([]byte, error) {
 			{name: "bundle/web/api-icon.png", content: alternate},
 			{name: "bundle/docs/HowTo/extra.md", content: []byte(contentExtraDoc)},
 		}
+	case "agent-landing":
+		entries = []zipEntry{{name: "bundle/web/api-content.md", content: []byte("# Our own landing page\n\n" + agentScript + "\n")}}
+	case "guide":
+		entries = []zipEntry{{name: "bundle/docs/Guide.md", content: []byte("# Guide\n")}}
 	case "near-limit":
 		entries = append(base, zipEntry{name: "bundle/web/large.png", content: make([]byte, uploadNearLimitBytes), stored: true})
 	case "oversized":
@@ -2817,8 +2830,13 @@ func (s *Steps) createAPIKeyAs(ctx context.Context, role, apiID, storeAs string)
 	return tcontext.Set(ctx, storeAs, created.ID)
 }
 
-// createMCPKey generates an MCP server key as the publisher and registers it for revocation.
-func (s *Steps) createMCPKey(ctx context.Context, mcpID, storeAs string) error {
+// createMCPKey generates an MCP server's or an agent's key as the publisher and registers it for
+// revocation.
+func (s *Steps) createMCPKey(ctx context.Context, kind, mcpID, storeAs string) error {
+	collection := "/mcp-servers/"
+	if kind == "agent" {
+		collection = "/agents/"
+	}
 	mcpID, err := stepscommon.Expand(ctx, mcpID)
 	if err != nil {
 		return err
@@ -2831,7 +2849,7 @@ func (s *Steps) createMCPKey(ctx context.Context, mcpID, storeAs string) error {
 	if err != nil {
 		return err
 	}
-	path := "/mcp-servers/" + mcpID + "/api-keys/generate"
+	path := collection + mcpID + "/api-keys/generate"
 	response, err := s.doJSON(ctx, base, token, http.MethodPost, path, map[string]any{"id": keyID})
 	if err != nil {
 		return err
@@ -2852,10 +2870,12 @@ func (s *Steps) createMCPKey(ctx context.Context, mcpID, storeAs string) error {
 	if created.ID == "" || created.Key == "" {
 		return fmt.Errorf("API Portal MCP API-key response was incomplete")
 	}
-	if err := s.registerPortalResource(ctx, mcpKeyKindOf(mcpID), created.ID, cleanup.ScenarioScope,
+	if err := s.registerPortalResource(ctx, mcpKeyKindOf(collection+mcpID), created.ID, cleanup.ScenarioScope,
 		portalCleanupRequest{
 			method: http.MethodPost,
-			path:   "/mcp-servers/" + mcpID + "/api-keys/revoke",
+			path:   collection + mcpID + "/api-keys/revoke",
+			// A key is revoked by the user who generated it.
+			role: "publisher",
 			payload: func(id string) any {
 				return map[string]any{"keyId": id}
 			},
@@ -2896,6 +2916,8 @@ func portalResourceKind(path string) cleanup.Kind {
 		return portalWebhookKind
 	case strings.HasPrefix(path, "/mcp-servers"):
 		return portalMCPServerKind
+	case strings.HasPrefix(path, "/agents"):
+		return portalAgentKind
 	default:
 		return cleanup.Kind{Name: "api-portal-resource", Order: 40}
 	}
@@ -2916,9 +2938,10 @@ func portalKeyMappingKindOf(applicationID string) cleanup.Kind {
 	}
 }
 
-// mcpKeyKindOf is the clean-up kind for the keys of one MCP server; the revoke path names it.
-func mcpKeyKindOf(mcpID string) cleanup.Kind {
-	return cleanup.Kind{Name: portalAPIKeyKind.Name + ":mcp:" + mcpID, Order: portalAPIKeyKind.Order}
+// mcpKeyKindOf is the clean-up kind for the keys of one MCP server or agent, named by its path
+// (/mcp-servers/<id> or /agents/<id>); the revoke path names it.
+func mcpKeyKindOf(artifactPath string) cleanup.Kind {
+	return cleanup.Kind{Name: portalAPIKeyKind.Name + ":mcp:" + artifactPath, Order: portalAPIKeyKind.Order}
 }
 
 // deregisterResourceFromCleanup forgets a resource the scenario has deleted itself, so that

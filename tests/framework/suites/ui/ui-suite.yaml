@@ -71,6 +71,25 @@ blocks:
         features:
           - features/apiportal/api_wizard.feature
 
+  # Agents are an opt-in artifact type (artifacts.enabled_types, api-portal-agents.toml). The
+  # other API Portal journeys check the portal with its default artifact types, whose navigation
+  # agents change, so the setting stays in a stack of its own.
+  - name: api-portal-agents
+    parallel: 1
+    components:
+      - name: platform-api
+        db: postgres
+      - name: api-portal
+        db: postgres
+        dependsOn: [platform-api]
+        overlay: tests/framework/core/catalog/overlays/api-portal-agents.toml
+      - name: testbench
+      - name: browser
+    runners:
+      - name: agents
+        features:
+          - features/apiportal/agents.feature
+
   # Key managers, the organization's details and webhooks are portal-wide, so the
   # journeys that change them (apiportal/key_managers.feature) keep a dedicated
   # stack and run serialized. apiportal/applications.feature shares it because its

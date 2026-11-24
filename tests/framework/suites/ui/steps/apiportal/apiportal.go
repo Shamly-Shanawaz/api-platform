@@ -132,6 +132,7 @@ func (u *Steps) Register(sc *godog.ScenarioContext) {
 	u.registerDeveloperSteps(sc)
 	u.registerIntegrationSteps(sc)
 	u.registerPlanSteps(sc)
+	u.registerAgentSteps(sc)
 }
 
 const (
